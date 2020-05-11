@@ -39,7 +39,6 @@ public class G2Service {
    * 
    * @throws ServiceSetupException
    */
-
   public void init(String iniFile) throws ServiceSetupException {
     boolean verboseLogging = false;
 
@@ -138,7 +137,7 @@ public class G2Service {
     return g2Engine.getLastExceptionCode() + ", " + g2Engine.getLastException();
   }
 
-  private static String getG2IniDataAsJson(String iniFile) throws IOException, JSONException {
+  protected static String getG2IniDataAsJson(String iniFile) throws IOException, JSONException {
     Pattern  iniSection  = Pattern.compile( "\\s*\\[([^]]*)\\]\\s*" );
     Pattern  iniKeyValue = Pattern.compile( "\\s*([^=]*)=(.*)" );
     JSONObject rootObject = new JSONObject();

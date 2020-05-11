@@ -1,7 +1,7 @@
 package com.senzing.listener.senzing.communication;
 
 import com.senzing.listener.senzing.communication.exception.MessageConsumerSetupException;
-import com.senzing.listener.senzing.service.ConnectorService;
+import com.senzing.listener.senzing.service.ListenerService;
 
 /**
  * Interface for a queue consumer.
@@ -25,5 +25,5 @@ public interface MessageConsumer {
    * 
    * @throws Exception
    */
-	public void consume(ConnectorService service) throws Exception;
+	public void consume(ListenerService service) throws Exception;
 }

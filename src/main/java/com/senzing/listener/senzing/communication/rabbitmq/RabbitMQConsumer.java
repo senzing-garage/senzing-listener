@@ -1,6 +1,7 @@
 package com.senzing.listener.senzing.communication.rabbitmq;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 import org.json.JSONArray;
@@ -15,7 +16,7 @@ import com.senzing.listener.senzing.communication.MessageConsumer;
 import com.senzing.listener.senzing.communication.exception.MessageConsumerSetupException;
 import com.senzing.listener.senzing.data.ConsumerCommandOptions;
 import com.senzing.listener.senzing.data.Definitions;
-import com.senzing.listener.senzing.service.ConnectorService;
+import com.senzing.listener.senzing.service.ListenerService;
 import com.senzing.listener.senzing.service.exception.ServiceExecutionException;
 
 /**
@@ -28,7 +29,7 @@ public class RabbitMQConsumer implements MessageConsumer {
   private String userName;
   private String password;
 
-  ConnectorService service;
+  ListenerService service;
 
   private final String UTF8_ENCODING = "UTF-8";
 
@@ -50,13 +51,13 @@ public class RabbitMQConsumer implements MessageConsumer {
    * Initializes the object. It sets the object up based on configuration passed in.
    * 
    * @param config Configuration string containing the needed information to connect to RabbitMQ.
-   *               The configuration is in JSON format:
-   *               {
-   *                 "mqQueue":"<queue name>",              # required value
-   *                 "mqHost":"<host name or IP address>",  # required value
-   *                 "mqUser":"<user name>",                # not required
-   *                 "mqPassword":"<password>"              # not required
-   *               }
+   * The configuration is in JSON format:
+   * {
+   *   "mqQueue":"<queue name>",              # required value
+   *   "mqHost":"<host name or IP address>",  # required value
+   *   "mqUser":"<user name>",                # not required
+   *   "mqPassword":"<password>"              # not required
+   * }
    *
    * @throws MessageConsumerSetupException
    */
@@ -81,7 +82,7 @@ public class RabbitMQConsumer implements MessageConsumer {
    * @throws MessageConsumerSetupException
    */
   @Override
-  public void consume(ConnectorService service) throws MessageConsumerSetupException {
+  public void consume(ListenerService service) throws MessageConsumerSetupException {
 
     this.service = service;
 
@@ -93,12 +94,7 @@ public class RabbitMQConsumer implements MessageConsumer {
         factory.setPassword(password);
       }
       Connection connection = factory.newConnection();
-      Channel channel = connection.createChannel();
-
-      boolean durable = false;
-      boolean exclusive = false;
-      boolean autoDelete = false;
-      channel.queueDeclare(queueName, durable, exclusive, autoDelete, null);
+      Channel channel = getChannel(connection, queueName);
 
       DeliverCallback deliverCallback = (consumerTag, delivery) -> {
         String message = new String(delivery.getBody(), UTF8_ENCODING);
@@ -118,6 +114,22 @@ public class RabbitMQConsumer implements MessageConsumer {
       throw new MessageConsumerSetupException(e);
     }
 
+  }
+
+  private Channel getChannel(Connection connection, String queueName) throws IOException {
+    try {
+      return declareQueue(connection, queueName, true, false, false, null);
+    } catch (IOException e) {
+      // Possibly the queue is already declared and as non-durable. Retry with durable = false.
+      return declareQueue(connection, queueName, false, false, false, null);
+    }
+  }
+
+  private Channel declareQueue(Connection connection, String queueName, boolean durable, boolean exclusive,
+      boolean autoDelete, Map<String, Object> arguments) throws IOException {
+    Channel channel = connection.createChannel();
+    channel.queueDeclare(queueName, durable, exclusive, autoDelete, arguments);
+    return channel;
   }
 
   private void processMessage(String message) {
