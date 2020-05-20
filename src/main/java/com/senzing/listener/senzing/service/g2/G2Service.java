@@ -97,7 +97,9 @@ public class G2Service {
    * 
    * @param dataSource
    * @param recordId
-   * @return
+   * 
+   * @return Entity information in JSON format
+   * 
    * @throws ServiceExecutionException
    */
   public String getEntity(String dataSource, String recordId) throws ServiceExecutionException {
@@ -111,6 +113,17 @@ public class G2Service {
     return response.toString();
   }
 
+  /**
+   * Gets a list of entities based on list of feature ids.
+   * 
+   * @param criteria JSON document of the format
+   * {"ENTITY_ID":<entity id>,"LIB_FEAT_IDS":[<id1>,<id2>,...<idn>]}
+   * 
+   * @return JSON document of the format
+   * [{"LIB_FEAT_ID":<lib feat id>, "USAGE_TYPE":"<usage type","RES_ENT_ID":<entity id1>},...]
+   * 
+   * @throws ServiceExecutionException
+   */
   public String searchByAttribute(String criteria) throws ServiceExecutionException {
     StringBuffer response = new StringBuffer();
     int result = g2Engine.searchByAttributesV2(criteria, G2Engine.G2_ENTITY_DEFAULT_FLAGS, response);
@@ -122,6 +135,13 @@ public class G2Service {
     return response.toString();
   }
 
+  /**
+   * Gets the current G2 configuration in JSON format.
+   * 
+   * @return G2 configuration in JSON format
+   * 
+   * @throws ServiceExecutionException
+   */
   public String exportConfig() throws ServiceExecutionException {
     StringBuffer response = new StringBuffer();
     int result = g2Engine.exportConfig(response);
