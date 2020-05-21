@@ -58,6 +58,15 @@ public class G2Service {
   }
 
   /**
+   * Cleans up and frees resources after processing.
+   */
+  public void cleanUp() {
+    if (g2Engine != null) {
+      g2Engine.destroy();
+    }
+  }
+
+  /**
    * Gets an entity for an entity id.
    * 
    * @param g2EntiyId The G2 id of the entity
