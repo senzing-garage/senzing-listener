@@ -1,12 +1,13 @@
 package com.senzing.listener.senzing.communication.rabbitmq;
 
 import java.io.IOException;
+import java.io.StringReader;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import javax.json.Json;
+import javax.json.JsonObject;
+import javax.json.JsonReader;
 
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
@@ -15,7 +16,6 @@ import com.rabbitmq.client.DeliverCallback;
 import com.senzing.listener.senzing.communication.MessageConsumer;
 import com.senzing.listener.senzing.communication.exception.MessageConsumerSetupException;
 import com.senzing.listener.senzing.data.ConsumerCommandOptions;
-import com.senzing.listener.senzing.data.Definitions;
 import com.senzing.listener.senzing.service.ListenerService;
 import com.senzing.listener.senzing.service.exception.ServiceExecutionException;
 
@@ -63,12 +63,13 @@ public class RabbitMQConsumer implements MessageConsumer {
    */
   public void init(String config) throws MessageConsumerSetupException {
     try {
-      JSONObject configObject = new JSONObject(config);
+      JsonReader reader = Json.createReader(new StringReader(config));
+      JsonObject configObject = reader.readObject();
       queueName = getConfigValue(configObject, ConsumerCommandOptions.MQ_QUEUE, true);
       queueHost = getConfigValue(configObject, ConsumerCommandOptions.MQ_HOST, true);
       userName = getConfigValue(configObject, ConsumerCommandOptions.MQ_USER, false);
       password = getConfigValue(configObject, ConsumerCommandOptions.MQ_PASSWORD, false);
-    } catch (JSONException e) {
+    } catch (RuntimeException e) {
       throw new MessageConsumerSetupException(e);
     }
   }
@@ -140,8 +141,8 @@ public class RabbitMQConsumer implements MessageConsumer {
     }
   }
 
-  private String getConfigValue(JSONObject configObject, String key, boolean required) throws JSONException, MessageConsumerSetupException {
-    String configValue = configObject.optString(key);
+  private String getConfigValue(JsonObject configObject, String key, boolean required) throws MessageConsumerSetupException {
+    String configValue = configObject.getString(key, null);
     if (required && (configValue == null || configValue.isEmpty())) {
       StringBuilder message = new StringBuilder("Following configuration parameter missing: ").append(key);
       throw new MessageConsumerSetupException(message.toString());

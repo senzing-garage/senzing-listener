@@ -2,16 +2,12 @@ package com.senzing.listener.senzing.service.g2;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Scanner;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
+import javax.json.Json;
+import javax.json.JsonObjectBuilder;
 
 import com.senzing.g2.engine.G2Engine;
 import com.senzing.g2.engine.G2JNI;
@@ -45,7 +41,7 @@ public class G2Service {
     String configData = null;
     try {
       configData = getG2IniDataAsJson(iniFile);
-    } catch (IOException | JSONException e) {
+    } catch (IOException | RuntimeException e) {
       throw new ServiceSetupException(e);
     }
     g2Engine = new G2JNI();
@@ -166,12 +162,13 @@ public class G2Service {
     return g2Engine.getLastExceptionCode() + ", " + g2Engine.getLastException();
   }
 
-  protected static String getG2IniDataAsJson(String iniFile) throws IOException, JSONException {
+  protected static String getG2IniDataAsJson(String iniFile) throws IOException {
     Pattern  iniSection  = Pattern.compile( "\\s*\\[([^]]*)\\]\\s*" );
     Pattern  iniKeyValue = Pattern.compile( "\\s*([^=]*)=(.*)" );
-    JSONObject rootObject = new JSONObject();
+    JsonObjectBuilder rootObject = Json.createObjectBuilder();
     try (Scanner scanner = new Scanner(new File(iniFile))) {
-      JSONObject currentSection = null;
+      JsonObjectBuilder currentSection = null;
+      String currentGroup = null;
       while (scanner.hasNextLine()) {
         String line = scanner.nextLine().trim();
         if (line.startsWith("#")) {
@@ -179,16 +176,23 @@ public class G2Service {
         }
         Matcher matcher = iniSection.matcher(line);
         if (matcher.matches()) {
-          currentSection = new JSONObject();
-          rootObject.put(matcher.group(1), currentSection);
+          if (currentGroup != null) {
+            rootObject.add(currentGroup, currentSection.build());
+          }
+          currentGroup = matcher.group(1);
+          currentSection = Json.createObjectBuilder();
+//          rootObject.add(matcher.group(1), currentSection);
         } else if (currentSection != null) {
           matcher = iniKeyValue.matcher(line);
           if (matcher.matches()) {
-            currentSection.put(matcher.group(1), matcher.group(2));
+            currentSection.add(matcher.group(1), matcher.group(2));
           }
         }
       }
+      if (currentGroup != null) {
+        rootObject.add(currentGroup, currentSection.build());
+      }
     }
-    return rootObject.toString();
+    return rootObject.build().toString();
   }
 }
