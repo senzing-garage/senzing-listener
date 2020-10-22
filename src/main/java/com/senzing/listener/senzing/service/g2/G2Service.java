@@ -30,9 +30,9 @@ public class G2Service {
   /**
    * Initializes the service. It reads the information from the ini file and
    * sets up G2 using that data.
-   * 
+   *
    * @param iniFile
-   * 
+   *
    * @throws ServiceSetupException
    */
   public void init(String iniFile) throws ServiceSetupException {
@@ -64,13 +64,13 @@ public class G2Service {
 
   /**
    * Gets an entity for an entity id.
-   * 
+   *
    * @param g2EntiyId The G2 id of the entity
    * @param includeFullFeatures If true full features are returned. Could have performance impact
    * @param includeFeatureStats If true, statistics for features are returned. Could have performance impact
-   * 
+   *
    * @return Entity information in JSON format
-   * 
+   *
    * @throws ServiceExecutionException
    */
   public String getEntity(long g2EntiyId, boolean includeFullFeatures, boolean includeFeatureStats) throws ServiceExecutionException {
@@ -84,7 +84,7 @@ public class G2Service {
         flags |= G2Engine.G2_ENTITY_INCLUDE_ALL_FEATURES;
       }
       if (includeFeatureStats) {
-        flags |= G2Engine.G2_ENTITY_SHOW_FEATURES_STATS;
+        flags |= G2Engine.G2_ENTITY_OPTION_INCLUDE_FEATURE_STATS;
       }
     }
     int result = g2Engine.getEntityByEntityIDV2(g2EntiyId, flags, response);
@@ -99,12 +99,12 @@ public class G2Service {
 
   /**
    * Gets and entity for a data source and record id.
-   * 
+   *
    * @param dataSource
    * @param recordId
-   * 
+   *
    * @return Entity information in JSON format
-   * 
+   *
    * @throws ServiceExecutionException
    */
   public String getEntity(String dataSource, String recordId) throws ServiceExecutionException {
@@ -120,13 +120,13 @@ public class G2Service {
 
   /**
    * Gets a list of entities based on list of feature ids.
-   * 
+   *
    * @param criteria JSON document of the format
    * {"ENTITY_ID":<entity id>,"LIB_FEAT_IDS":[<id1>,<id2>,...<idn>]}
-   * 
+   *
    * @return JSON document of the format
    * [{"LIB_FEAT_ID":<lib feat id>, "USAGE_TYPE":"<usage type","RES_ENT_ID":<entity id1>},...]
-   * 
+   *
    * @throws ServiceExecutionException
    */
   public String searchByAttribute(String criteria) throws ServiceExecutionException {
@@ -142,9 +142,9 @@ public class G2Service {
 
   /**
    * Gets the current G2 configuration in JSON format.
-   * 
+   *
    * @return G2 configuration in JSON format
-   * 
+   *
    * @throws ServiceExecutionException
    */
   public String exportConfig() throws ServiceExecutionException {
