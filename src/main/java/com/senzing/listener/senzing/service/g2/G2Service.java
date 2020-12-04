@@ -80,6 +80,8 @@ public class G2Service {
       flags = G2Engine.G2_ENTITY_DEFAULT_FLAGS;
     } else {
       flags = G2Engine.G2_ENTITY_INCLUDE_ALL_RELATIONS;
+      flags |= G2Engine.G2_ENTITY_INCLUDE_RELATED_MATCHING_INFO;
+      flags |= G2Engine.G2_ENTITY_INCLUDE_RECORD_DATA;
       if (includeFullFeatures) {
         flags |= G2Engine.G2_ENTITY_INCLUDE_ALL_FEATURES;
       }
