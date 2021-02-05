@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Senzing Listener is a Java framework that combines access to a queue (RabitMQ) and G2 API.  It facilitates the creation of applications that would receive information (e.g. through streaming service) about G2 entities and perform actions against G2, based on that information.
+The Senzing Listener is a Java framework that combines access to a queue (RabbitMQ or SQS) and G2 API.  It facilitates the creation of applications that would receive information (e.g. through streaming service) about G2 entities and perform actions against G2, based on that information.
 
 ## Setup and building
 
@@ -83,7 +83,7 @@ mvn install
 
 There are 3 steps needed for creating an application around the Senzing Listener framework.
 
-1. Generate a consumer that interacts with RabbitMQ.
+1. Generate a consumer that interacts with RabbitMQ or SQS.
 
     This is done with a factory class, `MessageConsumerFactory`.  The Method is 
 
@@ -91,17 +91,17 @@ There are 3 steps needed for creating an application around the Senzing Listener
     MessageConsumer generateMessageConsumer(ConsumerType consumerType, String config)
     ```
 
-    The `consumerType` specifies what type of consumer is used.  Currently only accepts RabbitMQ so value would be ConsumerType.rabbitmq.
+    The `consumerType` specifies what type of consumer is used. For RabbitMQ the value would be ConsumerType.rabbitmq; for SQS the value would be ConsumerType.sqs. Note: SQS currently supports role credentials only.
 
     The `config` parameter is in Json format and takes 4 values:
 
-    1. mqHost which specifies the host interfact to the RabbitMQ.
+    1. (RabbitMQ only) mqHost which specifies the host interfact to the RabbitMQ.
 
-    1. mqQueue which gives the name of the queue being consumed from.
+    1. (RabbitMQ or SQS) mqQueue which gives the name of the queue being consumed from.
 
-    1. mqUser, the name of the user for accessing the queue. This is optional, depending on RabbitMQ's security setting.
+    1. (RabbitMQ only) mqUser, the name of the user for accessing the queue. This is optional, depending on RabbitMQ's security setting.
 
-    1. mqPassword, the password for the user. This is optional.
+    1. (RabbitMQ only) mqPassword, the password for the user. This is optional.
 
     An example could be:
 
