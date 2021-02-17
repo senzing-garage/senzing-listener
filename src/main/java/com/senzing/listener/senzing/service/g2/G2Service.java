@@ -62,6 +62,28 @@ public class G2Service {
     }
   }
 
+   /**
+   * Gets an entity for an entity id.
+   *
+   * @param g2EntiyId The G2 id of the entity
+   * @param flags bitmask
+   *
+   * @return Entity information in JSON format
+   *
+   * @throws ServiceExecutionException
+   */
+  public String getEntity(long g2EntiyId, int flags) throws ServiceExecutionException {
+    StringBuffer response = new StringBuffer();
+    int result = g2Engine.getEntityByEntityIDV2(g2EntiyId, flags, response);
+    if (result != G2ServiceDefinitions.G2_VALID_RESULT) {
+      StringBuilder errorMessage = new StringBuilder("G2 engine failed to retrieve an entity with error: ");
+      errorMessage.append(g2ErrorMessage(g2Engine));
+      throw new ServiceExecutionException(errorMessage.toString());
+    }
+    return response.toString();
+  }
+
+  
   /**
    * Gets an entity for an entity id.
    *
