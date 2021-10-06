@@ -6,24 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.0.2] - 2021-10-06
 
-- Thing 5
-- Thing 4
+### Changed in 0.0.2
 
-## [1.0.1] - yyyy-mm-dd
+- Prep for central repo
+- Added Javadoc
+- Refactored constants for initialization parameters to make them specific to 
+  the messaging vendor
+- Removed some unused classes
+- Changed `cleanUp()` functions to `destroy()`
+- Changed lower case / camelCase enums to UPPER_CASE
+- Renamed `com.senzing.listener.senzing.*` packages to `com.senzing.listener.*`
 
-### Added to 1.0.1
+## [0.0.1] - 2021-02-17
 
-- Thing 3
-
-### Fixed in 1.0.1
-
-- Thing 2
-
-## [1.0.0] - yyyy-mm-dd
-
-### Added to 1.0.0
-
-- Thing 2
-- Thing 1
+### Initial pre-release
