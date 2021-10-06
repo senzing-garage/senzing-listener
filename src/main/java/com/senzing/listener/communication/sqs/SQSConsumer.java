@@ -1,4 +1,4 @@
-package com.senzing.listener.senzing.communication.sqs;
+package com.senzing.listener.communication.sqs;
 
 import java.io.StringReader;
 import java.util.List;
@@ -7,10 +7,10 @@ import javax.json.Json;
 import javax.json.JsonObject;
 import javax.json.JsonReader;
 
-import com.senzing.listener.senzing.communication.MessageConsumer;
-import com.senzing.listener.senzing.communication.exception.MessageConsumerSetupException;
-import com.senzing.listener.senzing.service.ListenerService;
-import com.senzing.listener.senzing.service.exception.ServiceExecutionException;
+import com.senzing.listener.communication.MessageConsumer;
+import com.senzing.listener.communication.exception.MessageConsumerSetupException;
+import com.senzing.listener.service.ListenerService;
+import com.senzing.listener.service.exception.ServiceExecutionException;
 
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.sqs.SqsClient;

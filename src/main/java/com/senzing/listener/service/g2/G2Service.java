@@ -1,4 +1,4 @@
-package com.senzing.listener.senzing.service.g2;
+package com.senzing.listener.service.g2;
 
 import java.io.File;
 import java.io.IOException;
@@ -11,8 +11,8 @@ import javax.json.JsonObjectBuilder;
 
 import com.senzing.g2.engine.G2Engine;
 import com.senzing.g2.engine.G2JNI;
-import com.senzing.listener.senzing.service.exception.ServiceExecutionException;
-import com.senzing.listener.senzing.service.exception.ServiceSetupException;
+import com.senzing.listener.service.exception.ServiceExecutionException;
+import com.senzing.listener.service.exception.ServiceSetupException;
 
 import static com.senzing.g2.engine.G2Engine.*;
 

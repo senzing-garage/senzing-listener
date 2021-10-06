@@ -1,7 +1,7 @@
-package com.senzing.listener.senzing.service;
+package com.senzing.listener.service;
 
-import com.senzing.listener.senzing.service.exception.ServiceExecutionException;
-import com.senzing.listener.senzing.service.exception.ServiceSetupException;
+import com.senzing.listener.service.exception.ServiceExecutionException;
+import com.senzing.listener.service.exception.ServiceSetupException;
 
 /**
  * Defines an interface for a {@link ListenerService} that can process

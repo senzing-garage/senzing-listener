@@ -1,6 +1,6 @@
-package com.senzing.listener.senzing.service.exception;
+package com.senzing.listener.service.exception;
 
-import com.senzing.listener.senzing.service.ListenerService;
+import com.senzing.listener.service.ListenerService;
 
 /**
  * Exception that can be thrown if a {@link ListenerService} operation fails.

@@ -1,4 +1,4 @@
-package com.senzing.listener.senzing.communication.rabbitmq;
+package com.senzing.listener.communication.rabbitmq;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -13,10 +13,10 @@ import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DeliverCallback;
-import com.senzing.listener.senzing.communication.MessageConsumer;
-import com.senzing.listener.senzing.communication.exception.MessageConsumerSetupException;
-import com.senzing.listener.senzing.service.ListenerService;
-import com.senzing.listener.senzing.service.exception.ServiceExecutionException;
+import com.senzing.listener.communication.MessageConsumer;
+import com.senzing.listener.communication.exception.MessageConsumerSetupException;
+import com.senzing.listener.service.ListenerService;
+import com.senzing.listener.service.exception.ServiceExecutionException;
 
 /**
  * A consumer for RabbitMQ.

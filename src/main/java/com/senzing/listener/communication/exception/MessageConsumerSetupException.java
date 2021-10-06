@@ -1,4 +1,4 @@
-package com.senzing.listener.senzing.communication.exception;
+package com.senzing.listener.communication.exception;
 
 /**
  * Exception thrown when message consumer fails initialization.

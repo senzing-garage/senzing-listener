@@ -1,8 +1,8 @@
-package com.senzing.listener.senzing.communication;
+package com.senzing.listener.communication;
 
-import com.senzing.listener.senzing.communication.exception.MessageConsumerSetupException;
-import com.senzing.listener.senzing.communication.rabbitmq.RabbitMQConsumer;
-import com.senzing.listener.senzing.communication.sqs.SQSConsumer;
+import com.senzing.listener.communication.exception.MessageConsumerSetupException;
+import com.senzing.listener.communication.rabbitmq.RabbitMQConsumer;
+import com.senzing.listener.communication.sqs.SQSConsumer;
 
 /**
  * A factory class for creating instances of {@link MessageConsumer}.

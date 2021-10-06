@@ -133,9 +133,9 @@ This "Hello World" example will read messages from RabbitMQ and print "Hello Wor
         With the content:
 
         ```console
-        import com.senzing.listener.senzing.service.ListenerService;
-        import com.senzing.listener.senzing.service.exception.ServiceExecutionException;
-        import com.senzing.listener.senzing.service.exception.ServiceSetupException;
+        import com.senzing.listener.service.ListenerService;
+        import com.senzing.listener.service.exception.ServiceExecutionException;
+        import com.senzing.listener.service.exception.ServiceSetupException;
 
         public class HelloWorldService implements ListenerService {
           @Override
@@ -155,12 +155,12 @@ This "Hello World" example will read messages from RabbitMQ and print "Hello Wor
     1. src/main/java/HelloWorldAPP.java
 
         ```console
-        import com.senzing.listener.senzing.communication.ConsumerType;
-        import com.senzing.listener.senzing.communication.MessageConsumer;
-        import com.senzing.listener.senzing.communication.MessageConsumerFactory;
-        import com.senzing.listener.senzing.service.ListenerService;
-        import com.senzing.listener.senzing.service.exception.ServiceExecutionException;
-        import com.senzing.listener.senzing.service.exception.ServiceSetupException;
+        import com.senzing.listener.communication.ConsumerType;
+        import com.senzing.listener.communication.MessageConsumer;
+        import com.senzing.listener.communication.MessageConsumerFactory;
+        import com.senzing.listener.service.ListenerService;
+        import com.senzing.listener.service.exception.ServiceExecutionException;
+        import com.senzing.listener.service.exception.ServiceSetupException;
 
         public class HelloWorldApp {
           public static void main(String[] args) {
@@ -303,13 +303,13 @@ This example adds access to G2 to the Hello World example above.
 1. Modify `In your current directory create a pom file:` by adding ini file to the config (that sould be the only change)
 
     ```console
-    import com.senzing.listener.senzing.communication.ConsumerType;
-    import com.senzing.listener.senzing.communication.MessageConsumer;
-    import com.senzing.listener.senzing.communication.MessageConsumerFactory;
-    import com.senzing.listener.senzing.service.ListenerService;
-    import com.senzing.listener.senzing.service.exception.ServiceExecutionException;
-    import com.senzing.listener.senzing.service.exception.ServiceSetupException;
-    
+    import com.senzing.listener.communication.ConsumerType;
+    import com.senzing.listener.communication.MessageConsumer;
+    import com.senzing.listener.communication.MessageConsumerFactory;
+    import com.senzing.listener.service.ListenerService;
+    import com.senzing.listener.service.exception.ServiceExecutionException;
+    import com.senzing.listener.service.exception.ServiceSetupException;
+
     public class HelloWorldApp {
       public static void main(String[] args) {
         // The required configuration, mq name and the host RabbitMQ runs on.
@@ -341,10 +341,10 @@ This example adds access to G2 to the Hello World example above.
     import org.json.JSONException;
     import org.json.JSONObject;
     
-    import com.senzing.listener.senzing.service.g2.G2Service;
-    import com.senzing.listener.senzing.service.ListenerService;
-    import com.senzing.listener.senzing.service.exception.ServiceExecutionException;
-    import com.senzing.listener.senzing.service.exception.ServiceSetupException;
+    import com.senzing.listener.service.g2.G2Service;
+    import com.senzing.listener.service.ListenerService;
+    import com.senzing.listener.service.exception.ServiceExecutionException;
+    import com.senzing.listener.service.exception.ServiceSetupException;
     
     public class HelloWorldService implements ListenerService {
     

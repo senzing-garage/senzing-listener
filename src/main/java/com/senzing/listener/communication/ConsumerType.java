@@ -1,4 +1,4 @@
-package com.senzing.listener.senzing.communication;
+package com.senzing.listener.communication;
 
 /**
  * Enumerates the supported consumer types.
