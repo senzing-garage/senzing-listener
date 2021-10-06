@@ -15,60 +15,105 @@ import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DeliverCallback;
 import com.senzing.listener.senzing.communication.MessageConsumer;
 import com.senzing.listener.senzing.communication.exception.MessageConsumerSetupException;
-import com.senzing.listener.senzing.data.ConsumerCommandOptions;
 import com.senzing.listener.senzing.service.ListenerService;
 import com.senzing.listener.senzing.service.exception.ServiceExecutionException;
 
 /**
- * A consumer for RabbidMQ.
+ * A consumer for RabbitMQ.
  */
 public class RabbitMQConsumer implements MessageConsumer {
+  /**
+   * The initialization parameter for the RabbitMQ host.
+   */
+  public static final String MQ_HOST = "mqHost";
 
+  /**
+   * The initialization parameter for the RabbitMQ user name.
+   */
+  public static final String MQ_USER = "mqUser";
+
+  /**
+   * The initialization parameter for the RabbitMQ password.
+   */
+  public static final String MQ_PASSWORD = "mqPassword";
+
+  /**
+   * The initialization parameter for the RabbitMQ queue name.
+   */
+  public static final String MQ_QUEUE = "mqQueue";
+
+  /**
+   * The name of the queue.
+   */
   private String queueName;
+
+  /**
+   * The host or IP address for the queue.
+   */
   private String queueHost;
+
+  /**
+   * The user name for authenticating with the queue host.
+   */
   private String userName;
+
+  /**
+   * The password for the authenticating with the queue host.
+   */
   private String password;
 
-  ListenerService service;
+  /**
+   * The {@link ListenerService} for receiving messages.
+   */
+  private ListenerService service;
 
-  private final String UTF8_ENCODING = "UTF-8";
+  /**
+   * Constant for UTF-8 encoding.
+   */
+  private static final String UTF8_ENCODING = "UTF-8";
 
   /**
    * Generates a Rabbit MQ consumer.
    * 
-   * @return
-   * 
-   * @throws MessageConsumerSetupException
+   * @return The created {@link RabbitMQConsumer}.
    */
   public static RabbitMQConsumer generateRabbitMQConsumer() {
     return new RabbitMQConsumer();
   }
 
+  /**
+   * Private default constructor.
+   */
   private RabbitMQConsumer() {
+    // do nothing
   }
 
   /**
-   * Initializes the object. It sets the object up based on configuration passed in.
-   * 
-   * @param config Configuration string containing the needed information to connect to RabbitMQ.
+   * Initializes the object. It sets the object up based on configuration
+   * passed in.
+   * <p>
    * The configuration is in JSON format:
+   * <pre>
    * {
-   *   "mqQueue":"<queue name>",              # required value
-   *   "mqHost":"<host name or IP address>",  # required value
-   *   "mqUser":"<user name>",                # not required
-   *   "mqPassword":"<password>"              # not required
+   *   "mqQueue": "&lt;queue name&gt;",              # required value
+   *   "mqHost": "&lt;host name or IP address&gt;",  # required value
+   *   "mqUser": "&lt;user name&gt;",                # not required
+   *   "mqPassword": "&lt;password&gt;"              # not required
    * }
+   * </pre>
+   * @param config Configuration string containing the needed information to
+   *               connect to RabbitMQ.
    *
-   * @throws MessageConsumerSetupException
+   * @throws MessageConsumerSetupException If a failure occurs.
    */
   public void init(String config) throws MessageConsumerSetupException {
     try {
       JsonReader reader = Json.createReader(new StringReader(config));
       JsonObject configObject = reader.readObject();
-      queueName = getConfigValue(configObject, ConsumerCommandOptions.MQ_QUEUE, true);
-      queueHost = getConfigValue(configObject, ConsumerCommandOptions.MQ_HOST, true);
-      userName = getConfigValue(configObject, ConsumerCommandOptions.MQ_USER, false);
-      password = getConfigValue(configObject, ConsumerCommandOptions.MQ_PASSWORD, false);
+      queueName = getConfigValue(configObject, MQ_QUEUE, true);
+      queueHost = getConfigValue(configObject, MQ_HOST, true);
+      userName = getConfigValue(configObject, MQ_USER, false);
+      password = getConfigValue(configObject, MQ_PASSWORD, false);
     } catch (RuntimeException e) {
       throw new MessageConsumerSetupException(e);
     }
@@ -80,11 +125,12 @@ public class RabbitMQConsumer implements MessageConsumer {
    * 
    * @param service Processes messages
    * 
-   * @throws MessageConsumerSetupException
+   * @throws MessageConsumerSetupException If a failure occurs.
    */
   @Override
-  public void consume(ListenerService service) throws MessageConsumerSetupException {
-
+  public void consume(ListenerService service)
+      throws MessageConsumerSetupException
+  {
     this.service = service;
 
     try {
@@ -117,7 +163,9 @@ public class RabbitMQConsumer implements MessageConsumer {
 
   }
 
-  private Channel getChannel(Connection connection, String queueName) throws IOException {
+  private Channel getChannel(Connection connection, String queueName)
+      throws IOException
+  {
     try {
       return declareQueue(connection, queueName, true, false, false, null);
     } catch (IOException e) {
@@ -126,8 +174,14 @@ public class RabbitMQConsumer implements MessageConsumer {
     }
   }
 
-  private Channel declareQueue(Connection connection, String queueName, boolean durable, boolean exclusive,
-      boolean autoDelete, Map<String, Object> arguments) throws IOException {
+  private Channel declareQueue(Connection           connection,
+                               String               queueName,
+                               boolean              durable,
+                               boolean              exclusive,
+                               boolean              autoDelete,
+                               Map<String, Object>  arguments)
+      throws IOException
+  {
     Channel channel = connection.createChannel();
     channel.queueDeclare(queueName, durable, exclusive, autoDelete, arguments);
     return channel;
@@ -141,10 +195,16 @@ public class RabbitMQConsumer implements MessageConsumer {
     }
   }
 
-  private String getConfigValue(JsonObject configObject, String key, boolean required) throws MessageConsumerSetupException {
+  private String getConfigValue(JsonObject  configObject,
+                                String      key,
+                                boolean     required)
+      throws MessageConsumerSetupException
+  {
     String configValue = configObject.getString(key, null);
     if (required && (configValue == null || configValue.isEmpty())) {
-      StringBuilder message = new StringBuilder("Following configuration parameter missing: ").append(key);
+      StringBuilder message
+          = new StringBuilder("Following configuration parameter missing: ")
+          .append(key);
       throw new MessageConsumerSetupException(message.toString());
     }
     return configValue;

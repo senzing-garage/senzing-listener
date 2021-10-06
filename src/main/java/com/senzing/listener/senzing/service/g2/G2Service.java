@@ -14,12 +14,22 @@ import com.senzing.g2.engine.G2JNI;
 import com.senzing.listener.senzing.service.exception.ServiceExecutionException;
 import com.senzing.listener.senzing.service.exception.ServiceSetupException;
 
+import static com.senzing.g2.engine.G2Engine.*;
+
 /**
- * This class handles communication with G2.  It sets up an instance of G2 and interacts with it (get entities etc.).
+ * This class handles communication with G2.  It sets up an instance of G2 and
+ * interacts with it (get entities etc.).
  */
 public class G2Service {
+  /**
+   * The {@link G2Engine} to use.
+   */
   protected G2Engine g2Engine;
-  static final String moduleName = "G2JNI";
+
+  /**
+   * The module name used to initialize the {@link G2Engine}.
+   */
+  private static final String moduleName = "G2JNI";
 
   /**
    * Default constructor.
@@ -31,9 +41,9 @@ public class G2Service {
    * Initializes the service. It reads the information from the ini file and
    * sets up G2 using that data.
    *
-   * @param iniFile
+   * @param iniFile The path to the INI file for initialization.
    *
-   * @throws ServiceSetupException
+   * @throws ServiceSetupException If a failure occurs.
    */
   public void init(String iniFile) throws ServiceSetupException {
     boolean verboseLogging = false;
@@ -56,7 +66,7 @@ public class G2Service {
   /**
    * Cleans up and frees resources after processing.
    */
-  public void cleanUp() {
+  public void destroy() {
     if (g2Engine != null) {
       g2Engine.destroy();
     }
@@ -66,17 +76,21 @@ public class G2Service {
    * Gets an entity for an entity id.
    *
    * @param g2EntiyId The G2 id of the entity
-   * @param flags bitmask
+   * @param flags bitmask flags
    *
    * @return Entity information in JSON format
    *
-   * @throws ServiceExecutionException
+   * @throws ServiceExecutionException If a failure occurs.
    */
-  public String getEntity(long g2EntiyId, int flags) throws ServiceExecutionException {
+  public String getEntity(long g2EntiyId, int flags)
+      throws ServiceExecutionException
+  {
     StringBuffer response = new StringBuffer();
     int result = g2Engine.getEntityByEntityIDV2(g2EntiyId, flags, response);
     if (result != G2ServiceDefinitions.G2_VALID_RESULT) {
-      StringBuilder errorMessage = new StringBuilder("G2 engine failed to retrieve an entity with error: ");
+      StringBuilder errorMessage
+          = new StringBuilder(
+              "G2 engine failed to retrieve an entity with error: ");
       errorMessage.append(g2ErrorMessage(g2Engine));
       throw new ServiceExecutionException(errorMessage.toString());
     }
@@ -88,32 +102,40 @@ public class G2Service {
    * Gets an entity for an entity id.
    *
    * @param g2EntiyId The G2 id of the entity
-   * @param includeFullFeatures If true full features are returned. Could have performance impact
-   * @param includeFeatureStats If true, statistics for features are returned. Could have performance impact
+   * @param includeFullFeatures If true full features are returned. Could have
+   *                            performance impact
+   * @param includeFeatureStats If true, statistics for features are returned.
+   *                            Could have performance impact
    *
    * @return Entity information in JSON format
    *
-   * @throws ServiceExecutionException
+   * @throws ServiceExecutionException If a failure occurs.
    */
-  public String getEntity(long g2EntiyId, boolean includeFullFeatures, boolean includeFeatureStats) throws ServiceExecutionException {
+  public String getEntity(long    g2EntiyId,
+                          boolean includeFullFeatures,
+                          boolean includeFeatureStats)
+      throws ServiceExecutionException
+  {
     StringBuffer response = new StringBuffer();
     int flags;
     if (!(includeFullFeatures || includeFeatureStats)) {
-      flags = G2Engine.G2_ENTITY_DEFAULT_FLAGS;
+      flags = G2_ENTITY_DEFAULT_FLAGS;
     } else {
-      flags = G2Engine.G2_ENTITY_INCLUDE_ALL_RELATIONS;
-      flags |= G2Engine.G2_ENTITY_INCLUDE_RELATED_MATCHING_INFO;
-      flags |= G2Engine.G2_ENTITY_INCLUDE_RECORD_DATA;
+      flags = G2_ENTITY_INCLUDE_ALL_RELATIONS;
+      flags |= G2_ENTITY_INCLUDE_RELATED_MATCHING_INFO;
+      flags |= G2_ENTITY_INCLUDE_RECORD_DATA;
       if (includeFullFeatures) {
-        flags |= G2Engine.G2_ENTITY_INCLUDE_ALL_FEATURES;
+        flags |= G2_ENTITY_INCLUDE_ALL_FEATURES;
       }
       if (includeFeatureStats) {
-        flags |= G2Engine.G2_ENTITY_OPTION_INCLUDE_FEATURE_STATS;
+        flags |= G2_ENTITY_OPTION_INCLUDE_FEATURE_STATS;
       }
     }
     int result = g2Engine.getEntityByEntityIDV2(g2EntiyId, flags, response);
     if (result != G2ServiceDefinitions.G2_VALID_RESULT) {
-      StringBuilder errorMessage = new StringBuilder("G2 engine failed to retrieve an entity with error: ");
+      StringBuilder errorMessage
+          = new StringBuilder(
+              "G2 engine failed to retrieve an entity with error: ");
       errorMessage.append(g2ErrorMessage(g2Engine));
       throw new ServiceExecutionException(errorMessage.toString());
     }
@@ -122,20 +144,26 @@ public class G2Service {
   }
 
   /**
-   * Gets and entity for a data source and record id.
+   * Gets and entity having the record identified by the specified data source
+   * and record id.
    *
-   * @param dataSource
-   * @param recordId
+   * @param dataSource The data source for the record.
+   * @param recordId The record ID for the record.
    *
    * @return Entity information in JSON format
    *
-   * @throws ServiceExecutionException
+   * @throws ServiceExecutionException If a failure occurs.
    */
   public String getEntity(String dataSource, String recordId) throws ServiceExecutionException {
     StringBuffer response = new StringBuffer();
-    int result = g2Engine.getEntityByRecordIDV2(dataSource, recordId, G2Engine.G2_ENTITY_DEFAULT_FLAGS, response);
+    int result = g2Engine.getEntityByRecordIDV2(dataSource,
+                                                recordId,
+                                                G2_ENTITY_DEFAULT_FLAGS,
+                                                response);
     if (result != G2ServiceDefinitions.G2_VALID_RESULT) {
-      StringBuilder errorMessage = new StringBuilder("G2 engine failed to retrieve an entity with error: ");
+      StringBuilder errorMessage
+          = new StringBuilder(
+              "G2 engine failed to retrieve an entity with error: ");
       errorMessage.append(g2ErrorMessage(g2Engine));
       throw new ServiceExecutionException(errorMessage.toString());
     }
@@ -143,21 +171,43 @@ public class G2Service {
   }
 
   /**
-   * Gets a list of entities based on list of feature ids.
+   * Gets a list of entities based on list of feature ids.  The criteria
+   * parameter is formatted as:
+   * <pre>
+   * {
+   *   "ENTITY_ID": &lt;entity id&gt;,
+   *   "LIB_FEAT_IDS": [ &lt;id1&gt;, &lt;id2&gt;, ... &lt;idn&gt; ]
+   * }
+   * </pre>
+   * The returned JSON document is formatted as:
+   * <pre>
+   * [
+   *   {
+   *     "LIB_FEAT_ID": &lt;lib feat id&gt;,
+   *     "USAGE_TYPE": "&lt;usage type&gt;",
+   *     "RES_ENT_ID": &lt;entity id1&gt;
+   *   },
+   *   ...
+   * ]
+   * </pre>
    *
    * @param criteria JSON document of the format
-   * {"ENTITY_ID":<entity id>,"LIB_FEAT_IDS":[<id1>,<id2>,...<idn>]}
    *
    * @return JSON document of the format
-   * [{"LIB_FEAT_ID":<lib feat id>, "USAGE_TYPE":"<usage type","RES_ENT_ID":<entity id1>},...]
    *
-   * @throws ServiceExecutionException
+   * @throws ServiceExecutionException If a failure occurs.
    */
-  public String searchByAttribute(String criteria) throws ServiceExecutionException {
+  public String searchByAttribute(String criteria)
+      throws ServiceExecutionException
+  {
     StringBuffer response = new StringBuffer();
-    int result = g2Engine.searchByAttributesV2(criteria, G2Engine.G2_ENTITY_DEFAULT_FLAGS, response);
+    int result = g2Engine.searchByAttributesV2(criteria,
+                                               G2_ENTITY_DEFAULT_FLAGS,
+                                               response);
     if (result != G2ServiceDefinitions.G2_VALID_RESULT) {
-      StringBuilder errorMessage = new StringBuilder("G2 engine failed to retrieve an entity with error: ");
+      StringBuilder errorMessage
+          = new StringBuilder(
+              "G2 engine failed to retrieve an entity with error: ");
       errorMessage.append(g2ErrorMessage(g2Engine));
       throw new ServiceExecutionException(errorMessage.toString());
     }
@@ -175,7 +225,9 @@ public class G2Service {
     StringBuffer response = new StringBuffer();
     int result = g2Engine.exportConfig(response);
     if (result != G2ServiceDefinitions.G2_VALID_RESULT) {
-      StringBuilder errorMessage = new StringBuilder("G2 engine failed to export configuration with error: ");
+      StringBuilder errorMessage
+          = new StringBuilder(
+              "G2 engine failed to export configuration with error: ");
       errorMessage.append(g2ErrorMessage(g2Engine));
       throw new ServiceExecutionException(errorMessage.toString());
     }
@@ -186,7 +238,9 @@ public class G2Service {
     return g2Engine.getLastExceptionCode() + ", " + g2Engine.getLastException();
   }
 
-  protected static String getG2IniDataAsJson(String iniFile) throws IOException {
+  protected static String getG2IniDataAsJson(String iniFile)
+      throws IOException
+  {
     Pattern  iniSection  = Pattern.compile( "\\s*\\[([^]]*)\\]\\s*" );
     Pattern  iniKeyValue = Pattern.compile( "\\s*([^=]*)=(.*)" );
     JsonObjectBuilder rootObject = Json.createObjectBuilder();

@@ -8,22 +8,21 @@ import com.senzing.listener.senzing.service.ListenerService;
  */
 
 public interface MessageConsumer {
-
   /**
    * Initializes the consumer.
    * 
    * @param config Configuration string.  It can be in JSON or other appropriate format.
    * 
-   * @throws MessageConsumerSetupException
+   * @throws MessageConsumerSetupException If a failure occurs.
    */
-  public void init(String config) throws MessageConsumerSetupException;
+  void init(String config) throws MessageConsumerSetupException;
 
   /**
    * Consumer main function.  Receives messages from message source and processes.
    * 
    * @param service Processes messages
    * 
-   * @throws Exception
+   * @throws Exception If a failure occurs.
    */
-	public void consume(ListenerService service) throws Exception;
+	void consume(ListenerService service) throws Exception;
 }

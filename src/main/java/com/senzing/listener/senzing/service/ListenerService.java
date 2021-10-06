@@ -3,28 +3,32 @@ package com.senzing.listener.senzing.service;
 import com.senzing.listener.senzing.service.exception.ServiceExecutionException;
 import com.senzing.listener.senzing.service.exception.ServiceSetupException;
 
+/**
+ * Defines an interface for a {@link ListenerService} that can process
+ * messages that are received.
+ */
 public interface ListenerService {
-
   /**
    * For initializing any needed resources before processing
    * 
    * @param config Configuration needed for the processing
    * 
-   * @throws ServiceSetupException
+   * @throws ServiceSetupException If a failure occurs.
    */
-  public void init(String config) throws ServiceSetupException;
+  void init(String config) throws ServiceSetupException;
 
   /**
-   * This method is called by the consumer.  Processes messages passed to the service from the consumer.
+   * This method is called by the consumer.  Processes messages passed to
+   * the service from the consumer.
    * 
-   * @param message
+   * @param message The message to process.
    * 
-   * @throws ServiceExecutionException
+   * @throws ServiceExecutionException If a failure occurs.
    */
-  public void process(String message) throws ServiceExecutionException;
+  void process(String message) throws ServiceExecutionException;
 
   /**
    * For cleaning up after processing, e.g. free up resources.
    */
-  public void cleanUp();
+  void destroy();
 }
