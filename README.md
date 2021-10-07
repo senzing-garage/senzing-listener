@@ -13,9 +13,11 @@ Before using the Senzing Listener to create applications you will need to build 
 To build the Senzing Listener you will need Apache Maven (recommend version 3.6.1 or later)
 as well as OpenJDK version 11.0.x (recommend version 11.0.6+10 or later).
 
-You will also need the Senzing `g2.jar` file installed in your Maven repository.
-The Senzing REST API Server requires version 1.13.x or later of the Senzing API and Senzing App.
-In order to install `g2.jar` you must:
+The Senzing Listener depends on `g2.jar`.  Version 2.9.0 and later of `g2.jar` 
+is available from the Central Maven Repository.  Version `2.9.x` of `g2.jar` 
+supports all Senzing 2.x product versions.  However, the Senzing Listener
+supports version 1.14.x or later.  If you need version 1.x then you must install
+`g2.jar` version 1.x in your local Maven repository via the following steps:
 
 1. Locate your
    [SENZING_G2_DIR](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_g2_dir)
@@ -133,9 +135,9 @@ This "Hello World" example will read messages from RabbitMQ and print "Hello Wor
         With the content:
 
         ```console
-        import com.senzing.listener.senzing.service.ListenerService;
-        import com.senzing.listener.senzing.service.exception.ServiceExecutionException;
-        import com.senzing.listener.senzing.service.exception.ServiceSetupException;
+        import com.senzing.listener.service.ListenerService;
+        import com.senzing.listener.service.exception.ServiceExecutionException;
+        import com.senzing.listener.service.exception.ServiceSetupException;
 
         public class HelloWorldService implements ListenerService {
           @Override
@@ -155,12 +157,12 @@ This "Hello World" example will read messages from RabbitMQ and print "Hello Wor
     1. src/main/java/HelloWorldAPP.java
 
         ```console
-        import com.senzing.listener.senzing.communication.ConsumerType;
-        import com.senzing.listener.senzing.communication.MessageConsumer;
-        import com.senzing.listener.senzing.communication.MessageConsumerFactory;
-        import com.senzing.listener.senzing.service.ListenerService;
-        import com.senzing.listener.senzing.service.exception.ServiceExecutionException;
-        import com.senzing.listener.senzing.service.exception.ServiceSetupException;
+        import com.senzing.listener.communication.ConsumerType;
+        import com.senzing.listener.communication.MessageConsumer;
+        import com.senzing.listener.communication.MessageConsumerFactory;
+        import com.senzing.listener.service.ListenerService;
+        import com.senzing.listener.service.exception.ServiceExecutionException;
+        import com.senzing.listener.service.exception.ServiceSetupException;
 
         public class HelloWorldApp {
           public static void main(String[] args) {
@@ -303,13 +305,13 @@ This example adds access to G2 to the Hello World example above.
 1. Modify `In your current directory create a pom file:` by adding ini file to the config (that sould be the only change)
 
     ```console
-    import com.senzing.listener.senzing.communication.ConsumerType;
-    import com.senzing.listener.senzing.communication.MessageConsumer;
-    import com.senzing.listener.senzing.communication.MessageConsumerFactory;
-    import com.senzing.listener.senzing.service.ListenerService;
-    import com.senzing.listener.senzing.service.exception.ServiceExecutionException;
-    import com.senzing.listener.senzing.service.exception.ServiceSetupException;
-    
+    import com.senzing.listener.communication.ConsumerType;
+    import com.senzing.listener.communication.MessageConsumer;
+    import com.senzing.listener.communication.MessageConsumerFactory;
+    import com.senzing.listener.service.ListenerService;
+    import com.senzing.listener.service.exception.ServiceExecutionException;
+    import com.senzing.listener.service.exception.ServiceSetupException;
+
     public class HelloWorldApp {
       public static void main(String[] args) {
         // The required configuration, mq name and the host RabbitMQ runs on.
@@ -341,10 +343,10 @@ This example adds access to G2 to the Hello World example above.
     import org.json.JSONException;
     import org.json.JSONObject;
     
-    import com.senzing.listener.senzing.service.g2.G2Service;
-    import com.senzing.listener.senzing.service.ListenerService;
-    import com.senzing.listener.senzing.service.exception.ServiceExecutionException;
-    import com.senzing.listener.senzing.service.exception.ServiceSetupException;
+    import com.senzing.listener.service.g2.G2Service;
+    import com.senzing.listener.service.ListenerService;
+    import com.senzing.listener.service.exception.ServiceExecutionException;
+    import com.senzing.listener.service.exception.ServiceSetupException;
     
     public class HelloWorldService implements ListenerService {
     
