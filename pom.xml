@@ -3,7 +3,7 @@
   <groupId>com.senzing</groupId>
   <artifactId>senzing-listener</artifactId>
   <packaging>jar</packaging>
-  <version>0.0.2-SNAPSHOT</version>
+  <version>0.0.2</version>
   <name>Senzing Listener Framework</name>
   <description>Framework for creating applications receiving messages from G2 through queue</description>
   <url>http://github.com/Senzing/senzing-listener</url>
@@ -43,6 +43,11 @@
       <organizationUrl>http://hubbitus.info</organizationUrl>
     </developer>
   </developers>
+  <scm>
+    <connection>scm:git:git://github.com/Senzing/senzing-listener.git</connection>
+    <developerConnection>scm:git:ssh://github.com:Senzing/senzing-listener.git</developerConnection>
+    <url>http://github.com/Senzing/senzing-listener/tree/master</url>
+  </scm>
   <dependencyManagement>
     <dependencies>
       <dependency>
