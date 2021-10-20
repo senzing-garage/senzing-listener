@@ -95,16 +95,6 @@
       <artifactId>commons-cli</artifactId>
       <version>1.4</version>
     </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-api</artifactId>
-      <version>1.7.32</version>
-    </dependency>
-    <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-log4j12</artifactId>
-      <version>1.7.32</version>
-    </dependency>
   </dependencies>
   <properties>
     <gpg.skip>true</gpg.skip> <!-- skip GPG unless release profile -->

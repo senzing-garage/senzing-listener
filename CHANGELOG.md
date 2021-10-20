@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.0.4] - 2021-10-20
+
+### Changed in 0.0.4
+
+- Added Javadoc description for @throws in G2Service.java
+- Removed SLF4J dependencies to remediate security vulnerabilities
+
 ## [0.0.3] - 2021-10-15
 
 ### Changed in 0.0.3

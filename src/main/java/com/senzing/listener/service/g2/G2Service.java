@@ -219,7 +219,7 @@ public class G2Service {
    *
    * @return G2 configuration in JSON format
    *
-   * @throws ServiceExecutionException
+   * @throws ServiceExecutionException If a failure occurs.
    */
   public String exportConfig() throws ServiceExecutionException {
     StringBuffer response = new StringBuffer();
