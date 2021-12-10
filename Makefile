@@ -29,6 +29,16 @@ default: help
 # Local development
 # -----------------------------------------------------------------------------
 
+.PHONY: install
+install:
+	mvn install \
+		-Dgit.branch=$(GIT_BRANCH) \
+		-Dgit.repository.name=$(GIT_REPOSITORY_NAME) \
+		-Dgit.sha=$(GIT_SHA) \
+		-Dgit.version.long=$(GIT_VERSION_LONG) \
+		-Dproject.version=$(GIT_VERSION) \
+		-DskipTests=True
+
 .PHONY: package
 package:
 	mvn package \
@@ -46,8 +56,8 @@ package:
 .PHONY: docker-package
 docker-package: docker-build
 
-	# Run docker image which creates a docker container.
-	# Then, copy the maven output from the container to the local workstation.
+	# Build package in a docker container.
+	# Copy the maven output from the container to the local workstation.
 	# Finally, remove the docker container.
 
 	mkdir $(TARGET)
