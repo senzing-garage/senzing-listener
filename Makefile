@@ -51,7 +51,7 @@ docker-package: docker-build
 	# Finally, remove the docker container.
 
 	PID=$$(docker create $(DOCKER_IMAGE_NAME) /bin/bash); \
-	docker cp $$PID:/git-repository/$(TARGET) .; \
+	docker cp $$PID:/app/senzing-listener.jar $(TARGET); \
 	docker rm -v $$PID
 
 # -----------------------------------------------------------------------------
@@ -65,6 +65,14 @@ docker-build:
 		--tag $(DOCKER_IMAGE_NAME) \
 		--tag $(DOCKER_IMAGE_NAME):$(GIT_VERSION) \
 		.
+
+# -----------------------------------------------------------------------------
+# Submodule management 
+# -----------------------------------------------------------------------------
+
+.PHONY: submodule-update
+submodule-update:
+	git submodule update --remote --recursive
 
 # -----------------------------------------------------------------------------
 # Clean up targets
