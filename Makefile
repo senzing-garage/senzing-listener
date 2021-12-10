@@ -50,6 +50,7 @@ docker-package: docker-build
 	# Then, copy the maven output from the container to the local workstation.
 	# Finally, remove the docker container.
 
+	mkdir $(TARGET)
 	PID=$$(docker create $(DOCKER_IMAGE_NAME) /bin/bash); \
 	docker cp $$PID:/app/senzing-listener.jar $(TARGET)/; \
 	docker rm -v $$PID
