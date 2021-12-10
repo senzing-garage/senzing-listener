@@ -20,8 +20,7 @@ ENV SENZING_G2_DIR=${SENZING_ROOT}/g2
 ENV PYTHONPATH=${SENZING_ROOT}/g2/python
 ENV LD_LIBRARY_PATH=${SENZING_ROOT}/g2/lib:${SENZING_ROOT}/g2/lib/debian
 
-
-# Build "senzing-listener.jar"
+# Build "senzing-listener.jar".
 
 COPY . /senzing-listener
 WORKDIR /senzing-listener
@@ -62,6 +61,10 @@ RUN wget -qO - https://adoptopenjdk.jfrog.io/adoptopenjdk/api/gpg/key/public | a
  && apt update \
  && apt install -y adoptopenjdk-11-hotspot \
  && rm -rf /var/lib/apt/lists/*
+
+# Copy files from repository.
+
+COPY ./rootfs /
 
 # Service exposed on port 8080.
 
