@@ -3,7 +3,7 @@
   <groupId>com.senzing</groupId>
   <artifactId>senzing-listener</artifactId>
   <packaging>jar</packaging>
-  <version>0.0.4</version>
+  <version>0.1.0</version>
   <name>Senzing Listener Framework</name>
   <description>Framework for creating applications receiving messages from G2 through queue</description>
   <url>http://github.com/Senzing/senzing-listener</url>
@@ -75,6 +75,16 @@
       <groupId>com.senzing</groupId>
       <artifactId>g2</artifactId>
       <version>[1.14.0-SNAPSHOT,3.0.0-SNAPSHOT)</version>
+    </dependency>
+    <dependency>
+      <groupId>com.senzing</groupId>
+      <artifactId>senzing-commons</artifactId>
+      <version>[0.6.0-SNAPSHOT,1.0.0-SNAPSHOT)</version>
+    </dependency>
+    <dependency>
+      <groupId>org.ini4j</groupId>
+      <artifactId>ini4j</artifactId>
+      <version>0.5.4</version>
     </dependency>
     <dependency>
       <groupId>com.rabbitmq</groupId>

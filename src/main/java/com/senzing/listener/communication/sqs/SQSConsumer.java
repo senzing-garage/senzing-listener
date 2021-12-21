@@ -142,7 +142,9 @@ public class SQSConsumer implements MessageConsumer {
     sqsClient.deleteMessage(deleteMessageRequest);
 }
 
-  private String getConfigValue(JsonObject configObject, String key, boolean required) throws MessageConsumerSetupException {
+  private String getConfigValue(JsonObject configObject, String key, boolean required)
+      throws MessageConsumerSetupException
+  {
     String configValue = configObject.getString(key, null);
     if (required && (configValue == null || configValue.isEmpty())) {
       StringBuilder message = new StringBuilder("Following configuration parameter missing: ").append(key);

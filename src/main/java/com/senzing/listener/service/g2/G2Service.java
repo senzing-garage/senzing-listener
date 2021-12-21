@@ -2,19 +2,17 @@ package com.senzing.listener.service.g2;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Scanner;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import javax.json.Json;
-import javax.json.JsonObjectBuilder;
+import javax.json.JsonObject;
 
 import com.senzing.g2.engine.G2Engine;
 import com.senzing.g2.engine.G2JNI;
 import com.senzing.listener.service.exception.ServiceExecutionException;
 import com.senzing.listener.service.exception.ServiceSetupException;
+import com.senzing.util.JsonUtils;
 
 import static com.senzing.g2.engine.G2Engine.*;
+import static com.senzing.io.IOUtilities.*;
 
 /**
  * This class handles communication with G2.  It sets up an instance of G2 and
@@ -29,7 +27,7 @@ public class G2Service {
   /**
    * The module name used to initialize the {@link G2Engine}.
    */
-  private static final String moduleName = "G2JNI";
+  private static final String DEFAULT_MODULE_NAME = "G2JNI";
 
   /**
    * Default constructor.
@@ -38,19 +36,48 @@ public class G2Service {
   }
 
   /**
-   * Initializes the service. It reads the information from the ini file and
-   * sets up G2 using that data.
+   * Initializes the service.  The specified initialization config parameter
+   * is either JSON to initialize with, a path to a JSON file or a path to
+   * INI file.
    *
-   * @param iniFile The path to the INI file for initialization.
+   * Gets the G2 initialization JSON from the specified initialization text
+   * which is either JSON text or a path to a JSON or INI file.
    *
-   * @throws ServiceSetupException If a failure occurs.
+   * @param initConfig The JSON text or path to a JSON or INI file to converted
+   *                   to JSON text.
+   * @throws ServiceSetupException If failure occurs in initialization.
    */
-  public void init(String iniFile) throws ServiceSetupException {
+  public synchronized void init(String initConfig)
+      throws ServiceSetupException
+  {
+    this.init(DEFAULT_MODULE_NAME, initConfig);
+  }
+
+  /**
+   * Initializes the service.  The specified initialization config parameter
+   * is either JSON to initialize with, a path to a JSON file or a path to
+   * INI file.
+   *
+   * Gets the G2 initialization JSON from the specified initialization text
+   * which is either JSON text or a path to a JSON or INI file.
+   *
+   * @param moduleName The module name for initializing G2.
+   *
+   * @param initConfig The JSON text or path to a JSON or INI file to converted
+   *                   to JSON text.
+   * @throws ServiceSetupException If failure occurs in initialization.
+   */
+  public synchronized void init(String moduleName, String initConfig)
+      throws ServiceSetupException
+  {
+    if (this.g2Engine != null) {
+      throw new IllegalStateException("G2Service already initialized");
+    }
     boolean verboseLogging = false;
 
     String configData = null;
     try {
-      configData = getG2IniDataAsJson(iniFile);
+      configData = getG2IniDataAsJson(initConfig);
     } catch (IOException | RuntimeException e) {
       throw new ServiceSetupException(e);
     }
@@ -66,9 +93,10 @@ public class G2Service {
   /**
    * Cleans up and frees resources after processing.
    */
-  public void destroy() {
-    if (g2Engine != null) {
-      g2Engine.destroy();
+  public synchronized void destroy() {
+    if (this.g2Engine != null) {
+      this.g2Engine.destroy();
+      this.g2Engine = null;
     }
   }
 
@@ -238,39 +266,43 @@ public class G2Service {
     return g2Engine.getLastExceptionCode() + ", " + g2Engine.getLastException();
   }
 
-  protected static String getG2IniDataAsJson(String iniFile)
+  /**
+   * Gets the G2 initialization JSON from the specified initialization text
+   * which is either JSON text or a path to a JSON or INI file.
+   *
+   * @param initConfig The JSON text or path to a JSON or INI file to converted
+   *                 to JSON text.
+   * @return The JSON text.
+   * @throws IOException If an I/O failure occurs.
+   */
+  protected static String getG2IniDataAsJson(String initConfig)
       throws IOException
   {
-    Pattern  iniSection  = Pattern.compile( "\\s*\\[([^]]*)\\]\\s*" );
-    Pattern  iniKeyValue = Pattern.compile( "\\s*([^=]*)=(.*)" );
-    JsonObjectBuilder rootObject = Json.createObjectBuilder();
-    try (Scanner scanner = new Scanner(new File(iniFile))) {
-      JsonObjectBuilder currentSection = null;
-      String currentGroup = null;
-      while (scanner.hasNextLine()) {
-        String line = scanner.nextLine().trim();
-        if (line.startsWith("#")) {
-          continue;
-        }
-        Matcher matcher = iniSection.matcher(line);
-        if (matcher.matches()) {
-          if (currentGroup != null) {
-            rootObject.add(currentGroup, currentSection.build());
-          }
-          currentGroup = matcher.group(1);
-          currentSection = Json.createObjectBuilder();
-//          rootObject.add(matcher.group(1), currentSection);
-        } else if (currentSection != null) {
-          matcher = iniKeyValue.matcher(line);
-          if (matcher.matches()) {
-            currentSection.add(matcher.group(1), matcher.group(2));
-          }
-        }
-      }
-      if (currentGroup != null) {
-        rootObject.add(currentGroup, currentSection.build());
-      }
+    String trimmed = initConfig.trim();
+
+    // check if the text specified is JSON
+    if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+      return initConfig;
     }
-    return rootObject.build().toString();
+
+    // check if we have a File
+    File initFile = new File(initConfig);
+    if (!initFile.exists()) {
+      throw new IllegalArgumentException("File does not exist: " + initConfig);
+    }
+
+    // load the file
+    String fileText = readTextFileAsString(initFile, UTF_8).trim();
+
+    // check if the file contained JSON text
+    if (fileText.startsWith("{") && fileText.endsWith("}")) {
+      return fileText;
+    }
+
+    // if not then assume the file contains INI text
+    JsonObject iniObject = JsonUtils.iniToJson(initFile);
+
+    // return the text version of the JSON object
+    return JsonUtils.toJsonText(iniObject);
   }
 }
