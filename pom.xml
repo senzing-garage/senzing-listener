@@ -3,7 +3,7 @@
   <groupId>com.senzing</groupId>
   <artifactId>senzing-listener</artifactId>
   <packaging>jar</packaging>
-  <version>0.1.0</version>
+  <version>0.3.0</version>
   <name>Senzing Listener Framework</name>
   <description>Framework for creating applications receiving messages from G2 through queue</description>
   <url>http://github.com/Senzing/senzing-listener</url>
@@ -74,12 +74,12 @@
     <dependency>
       <groupId>com.senzing</groupId>
       <artifactId>g2</artifactId>
-      <version>[1.14.0-SNAPSHOT,3.0.0-SNAPSHOT)</version>
+      <version>[1.14.0-SNAPSHOT,2.999.999]</version>
     </dependency>
     <dependency>
       <groupId>com.senzing</groupId>
       <artifactId>senzing-commons</artifactId>
-      <version>[0.6.0-SNAPSHOT,1.0.0-SNAPSHOT)</version>
+      <version>[2.0.2-SNAPSHOT,2.999.999]</version>
     </dependency>
     <dependency>
       <groupId>org.ini4j</groupId>
@@ -105,6 +105,12 @@
       <artifactId>commons-cli</artifactId>
       <version>1.4</version>
     </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.4.2</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
   <properties>
     <gpg.skip>true</gpg.skip> <!-- skip GPG unless release profile -->
@@ -112,9 +118,41 @@
     <maven.compiler.target>11</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+    <junit.jupiter.version>5.4.2</junit.jupiter.version>
+    <buildDirectory>${project.basedir}/target</buildDirectory>
   </properties>
   <build>
     <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.8.1</version>
+        <configuration>
+          <compilerArgs>
+            <arg>-Xlint:unchecked</arg>
+            <arg>-Xlint:deprecation</arg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>2.22.1</version>
+        <configuration>
+          <systemPropertyVariables>
+            <project.build.directory>${project.build.directory}</project.build.directory>
+          </systemPropertyVariables>
+          <properties>
+            <configurationParameters>
+              junit.jupiter.execution.parallel.enabled = true
+              junit.jupiter.execution.parallel.mode.default = same_thread
+              junit.jupiter.execution.parallel.mode.classes.default = concurrent
+              junit.jupiter.execution.parallel.config.strategy = dynamic
+              junit.jupiter.execution.parallel.config.dynamic.factor = 1
+            </configurationParameters>
+          </properties>
+        </configuration>
+      </plugin>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>

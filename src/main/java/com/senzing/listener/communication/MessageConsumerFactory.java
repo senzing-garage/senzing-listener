@@ -28,10 +28,10 @@ public class MessageConsumerFactory {
 
     switch (consumerType) {
       case RABBIT_MQ:
-        consumer = RabbitMQConsumer.generateRabbitMQConsumer();
+        consumer = new RabbitMQConsumer();
         break;
       case SQS:
-        consumer = SQSConsumer.generateSQSConsumer();
+        consumer = new SQSConsumer();
         break;
     }
     if (consumer == null) {

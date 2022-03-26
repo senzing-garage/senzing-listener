@@ -1,16 +1,13 @@
 package com.senzing.listener.communication.sqs;
 
-import java.io.StringReader;
 import java.util.List;
 
-import javax.json.Json;
 import javax.json.JsonObject;
-import javax.json.JsonReader;
 
-import com.senzing.listener.communication.MessageConsumer;
+import com.senzing.listener.communication.AbstractMessageConsumer;
+import com.senzing.listener.communication.exception.MessageConsumerException;
 import com.senzing.listener.communication.exception.MessageConsumerSetupException;
 import com.senzing.listener.service.ListenerService;
-import com.senzing.listener.service.exception.ServiceExecutionException;
 
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.sqs.SqsClient;
@@ -19,29 +16,87 @@ import software.amazon.awssdk.services.sqs.model.DeleteMessageRequest;
 import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest;
 import software.amazon.awssdk.services.sqs.model.ReceiveMessageResponse;
 
+import static com.senzing.listener.communication.MessageConsumer.State.*;
+
 /**
  * A consumer for SQS.
  */
-public class SQSConsumer implements MessageConsumer {
+public class SQSConsumer extends AbstractMessageConsumer<Message> {
   /**
-   * The initialization parameter for the SQS URL.
+   * The initialization parameter for the SQS URL.  There is no default value
+   * so this configuration parameter is required.
    */
-  public static final String SQS_URL = "sqsUrl";
+  public static final String SQS_URL_KEY = "sqsUrl";
 
   /**
-   * The queue name.
+   * The initialization parameter to configure the maximum number of times to
+   * retry a failed SQS request before aborting consumption.
    */
-  private String queueName;
+  public static final String MAXIMUM_RETRIES_KEY = "maximumRetries";
 
   /**
-   * The {@link ListenerService} for processing the messages.
+   * The initialization parameter to configure the number of milliseconds to
+   * wait to retry when a failure occurs.  This is only matters if the
+   * configured {@linkplain #MAXIMUM_RETRIES_KEY failure threshold} is
+   * greater than one (1).
    */
-  private ListenerService service;
+  public static final String RETRY_WAIT_TIME_KEY = "retryWaitTime";
+
+  /**
+   * The initialization parameter to configure the number of <b>seconds</b>
+   * messages on the SQS queue are hidden from subsequent retrieve requests
+   * after having been retrieved.  If not configured then the value configured
+   * on the queue itself is used.  Specifying this initialization parameter
+   * allows the client to override.
+   */
+  public static final String VISIBILITY_TIMEOUT_KEY = "visibilityTimeout";
+
+  /**
+   * The default number of times to retry failed SQS requests before aborting
+   * consumption.  The default value is {@value}.  A different value can be set
+   * via the {#link #MAXIMUM_RETRIES_KEY} parameter.
+   */
+  public static final int DEFAULT_MAXIMUM_RETRIES = 0;
+
+  /**
+   * The default number of milliseconds to wait before retrying the SQS request
+   * if the previous request failed.  The default value is {@value}.  A
+   * different value can be set via the {@link #RETRY_WAIT_TIME_KEY} parameter.
+   */
+  public static final long DEFAULT_RETRY_WAIT_TIME = 1000L;
+
+  /**
+   * The SQS URL.
+   */
+  private String sqsUrl;
 
   /**
    * The {@link SqsClient} for the connection to SQS.
    */
   private SqsClient sqsClient;
+
+  /**
+   * The consumption thread for this instance.
+   */
+  private Thread consumptionThread = null;
+
+  /**
+   * The maximum number of times to retry failed SQS requests before aborting
+   * consumption.
+   */
+  private int maximumRetries = DEFAULT_MAXIMUM_RETRIES;
+
+  /**
+   * The number of milliseconds to wait before retrying the SQS request if the
+   * previous request failed.
+   */
+  private long retryWaitTime = DEFAULT_RETRY_WAIT_TIME;
+
+  /**
+   * The configured visibility timeout or <code>null</code> if the queue's
+   * configured value should be used.
+   */
+  private Integer visibilityTimeout = null;
 
   /**
    * Wait parameter in seconds to SQS in case no messages are waiting to be collected.
@@ -60,7 +115,8 @@ public class SQSConsumer implements MessageConsumer {
   /**
    * Private default constructor.
    */
-  private SQSConsumer() {
+  public SQSConsumer() {
+    // do nothing
   }
 
   /**
@@ -70,7 +126,11 @@ public class SQSConsumer implements MessageConsumer {
    * The configuration is in JSON format:
    * <pre>
    * {
-   *   "queueName": "&lt;URL&gt;"              # required value
+   *   "sqsUrl": "&lt;URL&gt;",
+   *   "concurrency": "&lt;thread-count&gt;",
+   *   "failureThreshold": "&lt;failure-threshold&gt;",
+   *   "retryWaitTime": "&lt;pause-milliseconds&gt;",
+   *   "visibilityTimeout": "&lt;timeout-seconds&gt;"
    * }
    * </pre>
    *
@@ -79,15 +139,127 @@ public class SQSConsumer implements MessageConsumer {
    *
    * @throws MessageConsumerSetupException If an initialization failure occurs.
    */
-  public void init(String config) throws MessageConsumerSetupException {
+  @Override
+  protected void doInit(JsonObject config) throws MessageConsumerSetupException
+  {
     try {
-      JsonReader reader = Json.createReader(new StringReader(config));
-      JsonObject configObject = reader.readObject();
-      queueName = getConfigValue(configObject, SQS_URL, true);
-      sqsClient = SqsClient.builder()
-        .build();
+      // get the SQS URL
+      this.sqsUrl = getConfigString(config, SQS_URL_KEY, true);
+
+      // get the failure threshold
+      this.maximumRetries = getConfigInteger(config,
+                                             MAXIMUM_RETRIES_KEY,
+                                             0,
+                                             DEFAULT_MAXIMUM_RETRIES);
+
+      // get the retry wait time
+      this.retryWaitTime = getConfigLong(config,
+                                         RETRY_WAIT_TIME_KEY,
+                                         0L,
+                                         DEFAULT_RETRY_WAIT_TIME);
+
+      // get the visibility timeout
+      this.visibilityTimeout = getConfigInteger(config,
+                                                VISIBILITY_TIMEOUT_KEY,
+                                                1,
+                                                null);
+
+      this.sqsClient = SqsClient.builder().build();
+
     } catch (RuntimeException e) {
       throw new MessageConsumerSetupException(e);
+    }
+  }
+
+  /**
+   * Returns the maximum number times failed SQS requests will be retried before
+   * aborting message consumption.  This defaults to {@link
+   * #DEFAULT_MAXIMUM_RETRIES} and can be configured via the
+   * {@link #MAXIMUM_RETRIES_KEY} configuration parameter.
+   *
+   * @return The maximum number of times failed SQS requests will be retried
+   *         before aborting message consumption.
+   */
+  public int getMaximumRetries() {
+    return this.maximumRetries;
+  }
+
+  /**
+   * Returns the number of milliseconds to wait between SQS request retries
+   * when a failure occurs.  This defaults to {@link #DEFAULT_RETRY_WAIT_TIME}
+   * and can be configured via the {@link #RETRY_WAIT_TIME_KEY} configuration
+   * parameter.
+   *
+   * @return The number of milliseconds to wait between SQS request retries
+   *         when a failure occurs.
+   */
+  public long getRetryWaitTime() {
+    return this.retryWaitTime;
+  }
+
+  /**
+   * Returns the number of <b>seconds</b> messages on the SQS queue are hidden
+   * from subsequent retrieve requests after having been retrieved.  If this
+   * returns <code>null</code> then the value configured on the queue itself
+   * is used.
+   *
+   * @return The number of <b>seconds</b> messages on the SQS queue are hidden
+   *         from subsequent retrieve requests after having been retrieved, or
+   *         <code>null</code> if the queue's configured value is used.
+   */
+  public Integer getVisibilityTimeout() { return this.visibilityTimeout; }
+
+  /**
+   * Returns the configured SQS URL.
+   *
+   * @return The configured SQS URL.
+   */
+  public String getSqsUrl() {
+    return this.sqsUrl;
+  }
+
+  /**
+   * Handles an SQS failure and checks if consumption should be aborted.
+   *
+   * @param failureCount The number of consecutive failures so far.
+   * @param response The SQS response, or <code>null</code> if not known.
+   * @param failure The {@link Exception} that was thrown if available,
+   *                otherwise <code>null</code>.
+   * @return <code>true</code> if consumption should abort, otherwise
+   *         <code>false</code>.
+   */
+  protected boolean handleFailure(int                     failureCount,
+                                  ReceiveMessageResponse  response,
+                                  Exception               failure)
+  {
+    System.err.println();
+    System.err.println("*****************************");
+    System.err.println("FAILURE DETECTED: "
+                           + failureCount + " consecutive failure(s)");
+    if (response != null) {
+      System.err.println("Received SQS HTTP error response code: "
+                             + response.sdkHttpResponse().statusCode()
+                             + " / " + response.sdkHttpResponse().statusText());
+    }
+    System.err.println("SQS URL: " + this.getSqsUrl());
+    System.err.println();
+    if (failure != null) {
+      failure.printStackTrace();
+    }
+
+    // check if we have exceeded the maximum failure count
+    if (failureCount > this.getMaximumRetries()) {
+      // return true to indicate that we should abort consumption
+      return true;
+
+    } else {
+      // looks like we can retry
+      try {
+        Thread.sleep(this.getRetryWaitTime());
+      } catch (InterruptedException ignore) {
+        // ignore the exception
+      }
+      return false;
     }
   }
 
@@ -97,59 +269,89 @@ public class SQSConsumer implements MessageConsumer {
    * 
    * @param service Processes messages
    * 
-   * @throws MessageConsumerSetupException If a failure occurs.
+   * @throws MessageConsumerException If a failure occurs.
    */
   @Override
-  public void consume(ListenerService service)
-      throws MessageConsumerSetupException
+  protected void doConsume(ListenerService service)
+      throws MessageConsumerException
   {
-    this.service = service;
+    this.consumptionThread = new Thread(() -> {
+      int failureCount = 0;
+      while (this.getState() == CONSUMING) {
+        try {
+          ReceiveMessageRequest request = ReceiveMessageRequest.builder()
+              .queueUrl(this.getSqsUrl())
+              .waitTimeSeconds(SQS_WAIT_SECS)
+              .visibilityTimeout(this.getVisibilityTimeout())
+              .build();
 
-    while (true) {
-      try {
-        ReceiveMessageRequest receiveMessageRequest = ReceiveMessageRequest.builder()
-          .queueUrl(queueName)
-          .waitTimeSeconds(SQS_WAIT_SECS)
-          .build();
-        ReceiveMessageResponse messageResponse = sqsClient.receiveMessage(receiveMessageRequest);
-        if (!messageResponse.sdkHttpResponse().isSuccessful())
-          throw new MessageConsumerSetupException(String.valueOf(messageResponse.sdkHttpResponse().statusCode()));
+          ReceiveMessageResponse response = sqsClient.receiveMessage(request);
 
-        List<Message> messages = messageResponse.messages();
-        for (Message message: messages) {
-          processMessage(message.body());
-          deleteSqsMessage(message.receiptHandle());
+          // failed obtaining a response
+          if (!response.sdkHttpResponse().isSuccessful()) {
+            int responseCode = response.sdkHttpResponse().statusCode();
+            if (this.handleFailure(++failureCount, response, null)) {
+              // destroy and then return to abort consumption
+              this.destroy();
+              return;
+
+            } else {
+              // let's retry
+              continue;
+            }
+
+          } else {
+            // reset the consecutive failure count
+            failureCount = 0;
+          }
+
+          // get the messages from the response
+          List<Message> messages = response.messages();
+          for (Message message : messages) {
+            // enqueue the next message for processing -- this call may wait
+            // for enough room in the queue for the messages to be enqueued
+            this.enqueueMessages(service, message);
+          }
+
+        } catch (SdkException e) {
+          e.printStackTrace();
+          failureCount++;
+
         }
-      } catch (SdkException e) {
-        throw new MessageConsumerSetupException(e);
       }
-    }
+    });
+
+    // start the thread
+    this.consumptionThread.start();
   }
 
-  private void processMessage(String message) {
-    try {
-      service.process(message);
-    } catch (ServiceExecutionException e) {
-      e.printStackTrace();
-    }
+  @Override
+  protected String extractMessageBody(Message message) {
+    return message.body();
   }
 
-  private void deleteSqsMessage(String handle) {
+  @Override
+  protected void disposeMessage(Message message) {
+    String receiptHandle = message.receiptHandle();
+
     DeleteMessageRequest deleteMessageRequest = DeleteMessageRequest.builder()
-            .queueUrl(queueName)
-            .receiptHandle(handle)
-            .build();
-    sqsClient.deleteMessage(deleteMessageRequest);
-}
+        .queueUrl(this.getSqsUrl())
+        .receiptHandle(receiptHandle)
+        .build();
 
-  private String getConfigValue(JsonObject configObject, String key, boolean required)
-      throws MessageConsumerSetupException
-  {
-    String configValue = configObject.getString(key, null);
-    if (required && (configValue == null || configValue.isEmpty())) {
-      StringBuilder message = new StringBuilder("Following configuration parameter missing: ").append(key);
-      throw new MessageConsumerSetupException(message.toString());
+    sqsClient.deleteMessage(deleteMessageRequest);
+  }
+
+  @Override
+  protected void doDestroy() {
+    // join to the consumption thread
+    try {
+      this.consumptionThread.join();
+      synchronized (this) {
+        this.consumptionThread = null;
+      }
+    } catch (InterruptedException ignore) {
+      // ignore
     }
-    return configValue;
   }
 }

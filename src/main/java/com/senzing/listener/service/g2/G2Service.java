@@ -9,7 +9,7 @@ import com.senzing.g2.engine.G2Engine;
 import com.senzing.g2.engine.G2JNI;
 import com.senzing.listener.service.exception.ServiceExecutionException;
 import com.senzing.listener.service.exception.ServiceSetupException;
-import com.senzing.util.JsonUtils;
+import com.senzing.util.JsonUtilities;
 
 import static com.senzing.g2.engine.G2Engine.*;
 import static com.senzing.io.IOUtilities.*;
@@ -84,7 +84,8 @@ public class G2Service {
     g2Engine = new G2JNI();
     int result = g2Engine.initV2(moduleName, configData, verboseLogging);
     if (result != G2ServiceDefinitions.G2_VALID_RESULT) {
-      StringBuilder errorMessage = new StringBuilder("G2 engine failed to initalize with error: ");
+      StringBuilder errorMessage
+          = new StringBuilder("G2 engine failed to initialize with error: ");
       errorMessage.append(g2ErrorMessage(g2Engine));
       throw new ServiceSetupException(errorMessage.toString());
     }
@@ -103,18 +104,18 @@ public class G2Service {
    /**
    * Gets an entity for an entity id.
    *
-   * @param g2EntiyId The G2 id of the entity
+   * @param g2EntityId The G2 id of the entity
    * @param flags bitmask flags
    *
    * @return Entity information in JSON format
    *
    * @throws ServiceExecutionException If a failure occurs.
    */
-  public String getEntity(long g2EntiyId, int flags)
+  public String getEntity(long g2EntityId, int flags)
       throws ServiceExecutionException
   {
     StringBuffer response = new StringBuffer();
-    int result = g2Engine.getEntityByEntityIDV2(g2EntiyId, flags, response);
+    int result = g2Engine.getEntityByEntityIDV2(g2EntityId, flags, response);
     if (result != G2ServiceDefinitions.G2_VALID_RESULT) {
       StringBuilder errorMessage
           = new StringBuilder(
@@ -300,9 +301,9 @@ public class G2Service {
     }
 
     // if not then assume the file contains INI text
-    JsonObject iniObject = JsonUtils.iniToJson(initFile);
+    JsonObject iniObject = JsonUtilities.iniToJson(initFile);
 
     // return the text version of the JSON object
-    return JsonUtils.toJsonText(iniObject);
+    return JsonUtilities.toJsonText(iniObject);
   }
 }
