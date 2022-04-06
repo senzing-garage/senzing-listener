@@ -724,9 +724,15 @@ public class AbstractMessageConsumerTest {
     public synchronized void awaitSuccess(TestMessageConsumer consumer,
                                           int                 minSuccessCount)
     {
+      long start = System.nanoTime() / 1000000L;
       int successCount = this.getSuccessCount();
       boolean processing = this.isProcessing();
       while ((successCount < minSuccessCount || processing) && !this.aborted) {
+        long now = System.nanoTime() / 1000000L;
+        if ((now - start) > 10000L) {
+          start = now;
+          //printStatistics(consumer, this);
+        }
         try {
           this.wait(this.maxProcessingTime);
 
@@ -963,7 +969,7 @@ public class AbstractMessageConsumerTest {
     List<Message> batches = new LinkedList<>();
     int messageCount = buildInfoBatches(
         batches,
-        30000,
+        10000,
         List.of("CUSTOMERS", "EMPLOYEES", "VENDORS"),
         1,
         10,
@@ -972,7 +978,7 @@ public class AbstractMessageConsumerTest {
         4,
         0.005);
 
-        System.err.println();
+    System.err.println();
     System.err.println("=====================================================");
     System.err.println("Testing " + batches.size() + " batches comprising "
                        + messageCount + " messages with concurrency of "
@@ -1084,7 +1090,7 @@ public class AbstractMessageConsumerTest {
     //  // do nothing
     //}
     consumer.destroy();
-    //Map<Statistic, Number> stats = this.printStatistics(consumer, service);
+    //Map<Statistic, Number> stats = printStatistics(consumer, service);
     Map<Statistic, Number> stats = consumer.getStatistics();
 
     Number messageRetryCount  = stats.get(Statistic.messageRetryCount);
@@ -1182,9 +1188,11 @@ public class AbstractMessageConsumerTest {
     }
   }
 
-  private Map<Statistic, Number> printStatistics(TestMessageConsumer  consumer,
-                                                 TestService          service)
+  private static Map<Statistic, Number> printStatistics(
+      TestMessageConsumer consumer, TestService service)
   {
+    System.err.println();
+    System.err.println("===================================================");
     System.err.println("COMPLETED: " + service.getSuccessCount());
     Map<Statistic, Number> stats = consumer.getStatistics();
     System.err.println("STATISTICS:");

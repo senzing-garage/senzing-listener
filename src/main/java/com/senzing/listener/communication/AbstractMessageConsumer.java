@@ -3,6 +3,11 @@ package com.senzing.listener.communication;
 import com.senzing.listener.communication.exception.MessageConsumerException;
 import com.senzing.listener.communication.exception.MessageConsumerSetupException;
 import com.senzing.listener.service.ListenerService;
+import com.senzing.listener.service.exception.ServiceExecutionException;
+import com.senzing.listener.service.locking.LockToken;
+import com.senzing.listener.service.locking.LockingService;
+import com.senzing.listener.service.locking.ProcessScopeLockingService;
+import com.senzing.listener.service.locking.ResourceKey;
 import com.senzing.util.AccessToken;
 import com.senzing.util.AsyncWorkerPool;
 import com.senzing.util.JsonUtilities;
@@ -485,17 +490,9 @@ public abstract class AbstractMessageConsumer<M>
   private final Object statsMonitor = new Object();
 
   /**
-   * The {@link Map} of {@link Long} entity ID keys to {@link AccessToken}
-   * or {@link LocalToken} instances identifying the worker and lock that was
-   * obtained on that key.
+   * The {@link LockingService} to use.
    */
-  private Map<Long, Object> workersByEntity;
-
-  /**
-   * The {@link Map} of {@link AccessToken} or {@link LocalToken} keys to
-   * {@link Set} values containing the {@link Long} entity ID's that are locked.
-   */
-  private Map<Object, Set<Long>> entitiesByWorker;
+  private LockingService lockingService = null;
 
   /**
    * The total number of times an attempt was made to dequeue a message and
@@ -537,12 +534,13 @@ public abstract class AbstractMessageConsumer<M>
   }
 
   /**
-   * Provides a means to set the {@link State} for this instance.
+   * Provides a means to set the {@link State} for this instance as a
+   * synchronized method that will notify all upon changing the state.
    *
    * @param state The {@link State} for this instance.
    */
   protected synchronized void setState(State state) {
-    Objects.requireNonNull("State cannot be null");
+    Objects.requireNonNull(state,"State cannot be null");
     this.state = state;
     this.notifyAll();
   }
@@ -709,38 +707,47 @@ public abstract class AbstractMessageConsumer<M>
    */
   @Override
   public void init(String config) throws MessageConsumerSetupException {
-    if (this.state != UNINITIALIZED) {
-      throw new IllegalStateException(
-          "Cannot initialize if not in the " + UNINITIALIZED + " state: "
-          + this.getState());
+    synchronized (this) {
+      if (this.getState() != UNINITIALIZED) {
+        throw new IllegalStateException(
+            "Cannot initialize if not in the " + UNINITIALIZED + " state: "
+                + this.getState());
+      }
+      this.timerStart(initialize);
+      this.setState(INITIALIZING);
     }
-    this.timerStart(initialize);
-    this.state = INITIALIZING;
+
     try {
+      // parse the config
       JsonObject jsonConfig = parseJsonObject(config);
-      this.concurrency = getConfigInteger(jsonConfig,
-                                          CONCURRENCY_KEY,
-                                          1,
-                                          DEFAULT_CONCURRENCY);
 
-      // get the postponed timeout
-      this.postponedTimeout = getConfigLong(jsonConfig,
-                                            POSTPONED_TIMEOUT_KEY,
-                                            0L,
-                                            DEFAULT_POSTPONED_TIMEOUT);
+      synchronized (this) {
+        // create the locking service
+        this.lockingService = new ProcessScopeLockingService();
+        this.lockingService.init(null);
 
-      // get the standard timeout
-      this.standardTimeout = getConfigLong(jsonConfig,
-                                           STANDARD_TIMEOUT_KEY,
-                                           0L,
-                                           DEFAULT_STANDARD_TIMEOUT);
+        this.concurrency = getConfigInteger(jsonConfig,
+                                            CONCURRENCY_KEY,
+                                            1,
+                                            DEFAULT_CONCURRENCY);
 
-      this.entitiesByWorker = new HashMap<>();
-      this.workersByEntity = new HashMap<>();
-      this.postponedMessages = new LinkedList<>();
+        // get the postponed timeout
+        this.postponedTimeout = getConfigLong(jsonConfig,
+                                              POSTPONED_TIMEOUT_KEY,
+                                              0L,
+                                              DEFAULT_POSTPONED_TIMEOUT);
 
-      // create the list of pending messages
-      this.pendingMessages = new LinkedList<>();
+        // get the standard timeout
+        this.standardTimeout = getConfigLong(jsonConfig,
+                                             STANDARD_TIMEOUT_KEY,
+                                             0L,
+                                             DEFAULT_STANDARD_TIMEOUT);
+
+        this.postponedMessages = new LinkedList<>();
+
+        // create the list of pending messages
+        this.pendingMessages = new LinkedList<>();
+      }
 
       // defer additional configuration
       this.doInit(jsonConfig);
@@ -1251,25 +1258,6 @@ public abstract class AbstractMessageConsumer<M>
         if (msg != null) {
           this.timerPause(betweenMessages);
           this.timerStart(activelyProcessing);
-          Set<Long> entityIds = msg.getAffectedEntityIds();
-          this.timerStart(obtainLocks);
-          Object token = service.obtainClusterLocks(entityIds);
-          if (token == null) {
-            // perform local locking
-            token = new LocalToken();
-          }
-
-          // record the locks by this process
-          synchronized (this) {
-            // track the entities ID's by the token
-            this.entitiesByWorker.put(token, entityIds);
-
-            // track the set token by individual entity IDs
-            for (Long entityId : entityIds) {
-              this.workersByEntity.put(entityId, token);
-            }
-          }
-          this.timerPause(obtainLocks);
 
           // send the message to a worker to be processed
           InfoMessage<M> infoMsg = msg;
@@ -1300,7 +1288,7 @@ public abstract class AbstractMessageConsumer<M>
             } finally {
               // release any associated locks on the affected entities
               timers.start(releaseLocks.toString());
-              this.releaseLocks(infoMsg, service);
+              infoMsg.releaseLocks(this.lockingService);
               timers.pause(releaseLocks.toString());
 
               // get the associated message batch
@@ -1356,87 +1344,6 @@ public abstract class AbstractMessageConsumer<M>
   }
 
   /**
-   * Releases any locks obtained for the specified {@link InfoMessage}.
-   *
-   * @param msg The {@link InfoMessage} for which to release the locks on the
-   *            affected entities.
-   * @param service The {@link ListenerService} that is processing the messages.
-   */
-  private synchronized void releaseLocks(InfoMessage<M>   msg,
-                                         ListenerService  service)
-  {
-    // get the affected entities
-    Set<Long> affected = msg.getAffectedEntityIds();
-
-    // check if the set is empty
-    if (affected == null || affected.size() == 0) {
-      throw new IllegalStateException(
-          "No entities were affected for info message: "
-              + toJsonText(msg.getMessage()));
-    }
-
-    // determine the token
-    Object token = null;
-    for (Long entityId: affected) {
-      Object workerToken = this.workersByEntity.remove(entityId);
-
-      // check if not locked
-      if (workerToken == null) {
-        System.err.println();
-        System.err.println("****************************************");
-        System.err.println(
-            "Entity " + entityId + " should have been locked along "
-                + "with other affected entities but was not.  Affected: "
-                + affected);
-        System.err.println();
-        throw new IllegalStateException(
-            "Entity " + entityId + " was not locked with affected "
-                + "entities: " + affected);
-      }
-
-      // check if the token is null
-      if (token == null) {
-        // set the token
-        token = workerToken;
-
-        // release cluster locks if we obtained one -- only do this the first
-        // time the token is obtained -- don't repeat on subsequent iterations
-        if (token instanceof AccessToken) {
-          // if we have an AccessToken instead of LocalToken then cluster unlock
-          service.releaseClusterLocks((AccessToken) token);
-        }
-
-      } else if (token != workerToken) {
-        System.err.println();
-        System.err.println("****************************************");
-        System.err.println(
-            "Entity " + entityId + " lock was held by a different "
-                + "worker than other affected entities.  Affected: "
-                + affected);
-        System.err.println();
-
-        throw new IllegalStateException(
-            "Entity " + entityId + " lock was not held by the same "
-                + "worker as other affected entities: " + affected);
-      }
-    }
-
-    // now that we have removed from the one map, remove from the other
-    Set<Long> lockedEntities = this.entitiesByWorker.remove(token);
-    if (!affected.equals(lockedEntities)) {
-      System.err.println();
-      System.err.println("****************************************");
-      System.err.println(
-          "Locked entity ID set (" + lockedEntities + ") does not match the "
-          + "set of affected entities: " + affected);
-      System.err.println();
-      throw new IllegalStateException(
-          "Set of locked entities (" + lockedEntities + ") does not match "
-          + "affected entities: " + affected);
-    }
-  }
-
-  /**
    * Dequeues a previously enqueued {@link InfoMessage}.
    *
    * @param service The {@link ListenerService} that is being used for
@@ -1482,17 +1389,9 @@ public abstract class AbstractMessageConsumer<M>
     }
     this.timerPause(dequeueMessageWaitLoop);
 
-    // get the set of all locked entity ID's
-    this.timerStart(getClusterLocks);
-    Set<Long> lockedEntities = service.getClusterLocks();
-    this.timerPause(getClusterLocks);
-    if (lockedEntities == null) {
-      lockedEntities = this.workersByEntity.keySet();
-    }
-
     // check for a postponed message that is ready
     this.timerStart(checkPostponed);
-    InfoMessage<M> msg = this.getReadyPostponedMessage(service, lockedEntities);
+    InfoMessage<M> msg = this.getReadyPostponedMessage(service);
     this.timerPause(checkPostponed);
 
     // if not null then return the message
@@ -1514,19 +1413,14 @@ public abstract class AbstractMessageConsumer<M>
       // get the candidate message
       msg = this.pendingMessages.remove(0);
 
-      // check if any of the affected entities are locked
-      Set<Long> entityIds = msg.getAffectedEntityIds();
-      boolean locked = false;
-      for (Long entityId : entityIds) {
-        if (lockedEntities.contains(entityId)) {
-          locked = true;
-          break;
-        }
-      }
+      // attempt to lock the message resources
+      this.timerStart(obtainLocks);
+      boolean locked = msg.acquireLocks(this.lockingService);
+      this.timerPause(obtainLocks);
 
-      // check if locked
-      if (locked) {
-        // if locked then postpone the message
+      // check if we failed to lock it
+      if (!locked) {
+        // if not locked then postpone the message
         this.postponedMessages.add(msg);
 
         // check the postponed count to see if this is now the greatest
@@ -1676,12 +1570,10 @@ public abstract class AbstractMessageConsumer<M>
    * <code>null</code> is returned.
    *
    * @param service The {@link ListenerService} to process the message.
-   * @param lockedEntities The {@link Set} of entity ID's that are locked.
    * @return The next postponed {@link InfoMessage} that is now ready to try.
    */
   protected synchronized InfoMessage<M> getReadyPostponedMessage(
-      ListenerService service,
-      Set<Long>       lockedEntities)
+      ListenerService service)
   {
     // get the elapsed time and update the timestamp
     long now                = System.nanoTime();
@@ -1707,18 +1599,14 @@ public abstract class AbstractMessageConsumer<M>
     try {
       while (iter.hasNext()) {
         InfoMessage<M> msg = iter.next();
-        // get the set of affected entity IDs
-        Set<Long> entityIds = msg.getAffectedEntityIds();
-        boolean ready = true;
-        for (Long entityId : entityIds) {
-          if (lockedEntities.contains(entityId)) {
-            ready = false;
-            break;
-          }
-        }
 
-        // check if this one is ready
-        if (ready) {
+        // attempt to lock
+        // attempt to lock the message resources
+        this.timerStart(obtainLocks);
+        boolean locked = msg.acquireLocks(this.lockingService);
+        this.timerPause(obtainLocks);
+
+        if (locked) {
           iter.remove();
           return msg;
         }
@@ -1959,6 +1847,18 @@ public abstract class AbstractMessageConsumer<M>
     private Set<Long> affectedEntityIds;
 
     /**
+     * The {@link Set} of {@link ResourceKey} instances identifying the
+     * resources that must be locked to process this message.
+     */
+    private Set<ResourceKey> resourceKeys;
+
+    /**
+     * The {@link LockToken} associated with the locks obtained for this
+     * instance.
+     */
+    private LockToken lockToken = null;
+
+    /**
      * Flag indicating if the completion of this {@link InfoMessage} completes
      * the batch to which it belongs.
      */
@@ -1992,6 +1892,14 @@ public abstract class AbstractMessageConsumer<M>
             JsonUtilities.getLong(affected, ENTITY_ID_KEY));
       }
       this.affectedEntityIds = unmodifiableSet(this.affectedEntityIds);
+
+      // create the set of resource keys
+      this.resourceKeys = new TreeSet<>();
+      for (Long entityId: this.affectedEntityIds) {
+        this.resourceKeys.add(
+            new ResourceKey("ENTITY", String.valueOf(entityId)));
+      }
+      this.resourceKeys = unmodifiableSet(this.resourceKeys);
     }
 
     /**
@@ -2021,6 +1929,65 @@ public abstract class AbstractMessageConsumer<M>
      */
     public Set<Long> getAffectedEntityIds() {
       return this.affectedEntityIds;
+    }
+
+    /**
+     * Gets the <b>unmodifiable</b> {@link Set} of {@link ResourceKey} instances
+     * identifying the resources that must be locked to process this message.
+     *
+     * @return The <b>unmodifiable</b> {@link Set} of {@link ResourceKey}
+     *         instances identifying the resources that must be locked to
+     *         process this message.
+     */
+    public Set<ResourceKey> getResourcesKeys() {
+      return this.resourceKeys;
+    }
+
+    /**
+     * Acquires the locks on the resources required for this instance.
+     *
+     * @param lockingService The {@link LockingService} to use.
+     * @return <code>true</code> if the locks were obtained, otherwise
+     *         <code>false</code>.
+     */
+    public synchronized boolean acquireLocks(LockingService lockingService) {
+      if (this.lockToken != null) return true;
+
+      try {
+        this.lockToken = lockingService.acquireLocks(
+            this.getResourcesKeys(), 0L);
+
+      } catch (ServiceExecutionException e) {
+        throw new RuntimeException(e);
+      }
+
+      // check if the lock token is non-null
+      return (this.lockToken != null);
+    }
+
+    /**
+     * Releases the locks previously obtained on the resources required for
+     * this instance.
+     *
+     * @param lockingService The {@link LockingService} to use.
+     */
+    public synchronized void releaseLocks(LockingService lockingService) {
+      if (this.lockToken == null) return;
+
+      try {
+        int count = lockingService.releaseLocks(this.lockToken);
+
+        this.lockToken = null;
+
+        if (this.resourceKeys.size() != count) {
+          throw new IllegalStateException(
+              "Wrong number of locks released.  released=[ " + count
+              + " ], expected=[ " + this.resourceKeys.size() + " ]");
+        }
+
+      } catch (ServiceExecutionException e) {
+        throw new RuntimeException(e);
+      }
     }
 
     /**
@@ -2099,28 +2066,6 @@ public abstract class AbstractMessageConsumer<M>
     public String toString() {
       return "affected=[ " + this.getAffectedEntityIds() + " ], disposable=[ "
               + this.isDisposable() + " ]: " + toJsonText(this.getMessage());
-    }
-  }
-
-  /**
-   * A simple substitute for an {@link AccessToken} when dealing with
-   * locally locked objects.
-   */
-  private static final class LocalToken {
-    public LocalToken() {
-      // do nothing
-    }
-    @Override
-    public boolean equals(Object obj) {
-      return (this == obj);
-    }
-    @Override
-    public int hashCode() {
-      return System.identityHashCode(this);
-    }
-    @Override
-    public String toString() {
-      return "LocalToken[ " + this.hashCode() + " ]";
     }
   }
 
