@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.senzing</groupId>
   <artifactId>senzing-listener</artifactId>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>0.0.1</version>
   <name>Senzing Listener Framework</name>
   <description>Framework for creating applications receiving messages from G2 through queue</description>
   <properties>
@@ -30,7 +30,7 @@
     <dependency>
       <groupId>com.senzing</groupId>
       <artifactId>g2</artifactId>
-      <version>[1.14.0-SNAPSHOT,)</version>
+      <version>[1.14.0-SNAPSHOT,2.999.999)</version>
     </dependency>
     <dependency>
       <groupId>com.rabbitmq</groupId>
