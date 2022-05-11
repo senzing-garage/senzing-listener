@@ -72,7 +72,7 @@ public class G2Service {
    *
    * @throws ServiceExecutionException
    */
-  public String getEntity(long g2EntiyId, int flags) throws ServiceExecutionException {
+  public String getEntity(long g2EntiyId, long flags) throws ServiceExecutionException {
     StringBuffer response = new StringBuffer();
     int result = g2Engine.getEntityByEntityID(g2EntiyId, flags, response);
     if (result != G2ServiceDefinitions.G2_VALID_RESULT) {
