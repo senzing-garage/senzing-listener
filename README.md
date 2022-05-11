@@ -13,65 +13,7 @@ Before using the Senzing Listener to create applications you will need to build 
 To build the Senzing Listener you will need Apache Maven (recommend version 3.6.1 or later)
 as well as OpenJDK version 11.0.x (recommend version 11.0.6+10 or later).
 
-The Senzing Listener depends on `g2.jar`.  Version 2.9.0 and later of `g2.jar` 
-is available from the Central Maven Repository.  Version `2.9.x` of `g2.jar` 
-supports all Senzing 2.x product versions.  However, the Senzing Listener
-supports version 1.14.x or later.  If you need version 1.x then you must install
-`g2.jar` version 1.x in your local Maven repository via the following steps:
-
-1. Locate your
-   [SENZING_G2_DIR](https://github.com/Senzing/knowledge-base/blob/master/lists/environment-variables.md#senzing_g2_dir)
-   directory.
-   The default locations are:
-    1. [Linux](https://github.com/Senzing/knowledge-base/blob/master/HOWTO/install-senzing-api.md#centos): `/opt/senzing/g2`
-    1. Windows MSI Installer: `C:\Program Files\Senzing\`
-
-1. Determine your `SENZING_G2_JAR_VERSION` version number:
-    1. Locate your `g2BuildVersion.json` file:
-        1. Linux: `${SENZING_G2_DIR}/g2BuildVersion.json`
-        1. Windows: `${SENZING_G2_DIR}\data\g2BuildVersion.json`
-    1. Find the value for the `"VERSION"` property in the JSON contents.
-       Example:
-
-        ```console
-        {
-            "PLATFORM": "Linux",
-            "VERSION": "1.14.20060",
-            "API_VERSION": "1.14.3",
-            "BUILD_NUMBER": "2020_02_29__02_00"
-        }
-        ```
-
-1. Install the `g2.jar` file in your local Maven repository, replacing the
-   `${SENZING_G2_DIR}` and `${SENZING_G2_JAR_VERSION}` variables as determined above:
-
-    1. Linux:
-
-        ```console
-        export SENZING_G2_DIR=/opt/senzing/g2
-        export SENZING_G2_JAR_VERSION=1.14.3
-
-        mvn install:install-file \
-            -Dfile=${SENZING_G2_DIR}/lib/g2.jar \
-            -DgroupId=com.senzing \
-            -DartifactId=g2 \
-            -Dversion=${SENZING_G2_JAR_VERSION} \
-            -Dpackaging=jar
-        ```
-
-    1. Windows:
-
-        ```console
-        set SENZING_G2_DIR="C:\Program Files\Senzing\g2"
-        set SENZING_G2_JAR_VERSION=1.14.3
-
-        mvn install:install-file \
-            -Dfile="%SENZING_G2_DIR%\lib\g2.jar" \
-            -DgroupId=com.senzing \
-            -DartifactId=g2 \
-            -Dversion="%SENZING_G2_JAR_VERSION%" \
-            -Dpackaging=jar
-        ```
+You will also need the Senzing product version 3.0.0 or later.
 
 ### Building
 
