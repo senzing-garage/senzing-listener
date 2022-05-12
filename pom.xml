@@ -52,7 +52,7 @@
   <scm>
     <connection>scm:git:git://github.com/Senzing/senzing-listener.git</connection>
     <developerConnection>scm:git:ssh://github.com:Senzing/senzing-listener.git</developerConnection>
-    <url>http://github.com/Senzing/senzing-listener/tree/master</url>
+    <url>http://github.com/Senzing/senzing-listener/tree/main</url>
   </scm>
   <dependencyManagement>
     <dependencies>
