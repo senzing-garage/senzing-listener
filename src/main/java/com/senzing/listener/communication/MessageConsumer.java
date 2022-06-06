@@ -2,15 +2,14 @@ package com.senzing.listener.communication;
 
 import com.senzing.listener.communication.exception.MessageConsumerException;
 import com.senzing.listener.communication.exception.MessageConsumerSetupException;
-import com.senzing.listener.service.ListenerService;
+import com.senzing.listener.service.MessageProcessor;
 
 /**
  * Interface for a queue consumer.
  */
-
 public interface MessageConsumer {
   /**
-   * Enumerates the state of the {@link MessageConsumer}.
+   * Enumerates the various states of the {@link MessageConsumer}.
    */
   enum State {
     /**
@@ -71,7 +70,7 @@ public interface MessageConsumer {
   /**
    * Consumer main function.  This method receives messages from the message
    * source (i.e.: vendor-specific framework) and delegates processing to the
-   * specified {@link ListenerService}.  This method returns immediately, but
+   * specified {@link MessageProcessor}.  This method returns immediately, but
    * consumption continues in the background until the {@link #destroy()} method
    * is called.  Usage might look like:
    *
@@ -119,11 +118,11 @@ public interface MessageConsumer {
    *   consumer.destroy();
    * </pre>
    *
-   * @param service Processes messages
+   * @param processor Processes messages
    * 
    * @throws MessageConsumerException If a failure occurs.
    */
-	void consume(ListenerService service) throws MessageConsumerException;
+	void consume(MessageProcessor processor) throws MessageConsumerException;
 
   /**
    * Closes the consumer and completes message processing.

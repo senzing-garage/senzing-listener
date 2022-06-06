@@ -5,13 +5,14 @@ import com.senzing.listener.service.exception.ServiceSetupException;
 import com.senzing.util.AccessToken;
 import com.senzing.listener.communication.MessageConsumer;
 
+import javax.json.JsonObject;
 import java.util.Set;
 
 /**
  * Defines an interface for a {@link ListenerService} that can process
  * messages that are received.
  */
-public interface ListenerService {
+public interface ListenerService extends MessageProcessor {
   /**
    * For initializing any needed resources before processing
    * 
@@ -20,7 +21,7 @@ public interface ListenerService {
    * @throws ServiceSetupException If a failure occurs.
    */
   void init(String config) throws ServiceSetupException;
-  
+
   /**
    * This method is called by the consumer.  Processes the message passed to
    * the service from the consumer.
@@ -29,7 +30,7 @@ public interface ListenerService {
    *
    * @throws ServiceExecutionException If a failure occurs.
    */
-  void process(String message) throws ServiceExecutionException;
+  void process(JsonObject message) throws ServiceExecutionException;
 
   /**
    * For cleaning up after processing, e.g. free up resources.

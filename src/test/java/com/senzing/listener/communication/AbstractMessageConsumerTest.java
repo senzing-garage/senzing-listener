@@ -820,10 +820,10 @@ public class AbstractMessageConsumerTest {
       // do nothing
     }
 
-    public void process(String message) throws ServiceExecutionException {
-      JsonObject jsonObject = parseJsonObject(message);
+    @Override
+    public void process(JsonObject message) throws ServiceExecutionException {
       try {
-        MessageCounts counts = this.beginProcessing(jsonObject);
+        MessageCounts counts = this.beginProcessing(message);
         boolean success = true;
         try {
           long range = this.maxProcessingTime - this.minProcessingTime;
@@ -831,12 +831,12 @@ public class AbstractMessageConsumerTest {
           long processingTime = this.minProcessingTime
               + ((long) (percentage * (double) range));
           int maxFailures = getInteger(
-              jsonObject, "FAILURE_COUNT", 0);
+              message, "FAILURE_COUNT", 0);
           int failureCount = counts.getFailureCount();
           if (maxFailures > 0 && failureCount < maxFailures) {
             throw new ServiceExecutionException(
                 "Simulated failure (" + failureCount + " of " + maxFailures
-                    + ") for message: " + toJsonText(jsonObject));
+                    + ") for message: " + toJsonText(message));
           }
           boolean failure = PRNG.nextDouble() < this.failureRate;
           try {
@@ -847,7 +847,7 @@ public class AbstractMessageConsumerTest {
           if (failure) {
             throw new ServiceExecutionException(
                 "Simulated random failure for message: "
-                    + toJsonText(jsonObject));
+                    + toJsonText(message));
           }
 
         } catch (ServiceExecutionException e) {
@@ -859,7 +859,7 @@ public class AbstractMessageConsumerTest {
           success = false;
 
         } finally {
-          this.endProcessing(jsonObject, success);
+          this.endProcessing(message, success);
         }
 
       } catch (ServiceExecutionException e) {

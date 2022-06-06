@@ -15,7 +15,7 @@ import com.rabbitmq.client.Delivery;
 import com.senzing.listener.communication.AbstractMessageConsumer;
 import com.senzing.listener.communication.exception.MessageConsumerException;
 import com.senzing.listener.communication.exception.MessageConsumerSetupException;
-import com.senzing.listener.service.ListenerService;
+import com.senzing.listener.service.MessageProcessor;
 
 import static com.senzing.io.IOUtilities.UTF_8;
 
@@ -201,12 +201,12 @@ public class RabbitMQConsumer extends AbstractMessageConsumer<Delivery> {
    * Sets up a RabbitMQ consumer and then receives messages from RabbidMQ and
    * feeds to service.
    * 
-   * @param service Processes messages
+   * @param processor Processes messages
    * 
    * @throws MessageConsumerException If a failure occurs.
    */
   @Override
-  protected void doConsume(ListenerService service)
+  protected void doConsume(MessageProcessor processor)
       throws MessageConsumerException
   {
     try {
@@ -238,7 +238,7 @@ public class RabbitMQConsumer extends AbstractMessageConsumer<Delivery> {
       DeliverCallback deliverCallback = (consumerTag, delivery) -> {
         // enqueue the next message for processing -- this call may wait
         // for enough room in the queue for the messages to be enqueued
-        this.enqueueMessages(service, delivery);
+        this.enqueueMessages(processor, delivery);
       };
 
       // this call will run in the background until basicCancel() is called

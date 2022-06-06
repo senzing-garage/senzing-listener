@@ -7,8 +7,7 @@ import javax.json.JsonObject;
 import com.senzing.listener.communication.AbstractMessageConsumer;
 import com.senzing.listener.communication.exception.MessageConsumerException;
 import com.senzing.listener.communication.exception.MessageConsumerSetupException;
-import com.senzing.listener.service.ListenerService;
-
+import com.senzing.listener.service.MessageProcessor;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sqs.model.Message;
@@ -267,12 +266,12 @@ public class SQSConsumer extends AbstractMessageConsumer<Message> {
    * Sets up a SQS consumer and then receives messages from SQS and
    * feeds to service.
    * 
-   * @param service Processes messages
+   * @param processor Processes messages
    * 
    * @throws MessageConsumerException If a failure occurs.
    */
   @Override
-  protected void doConsume(ListenerService service)
+  protected void doConsume(MessageProcessor processor)
       throws MessageConsumerException
   {
     this.consumptionThread = new Thread(() -> {
@@ -310,7 +309,7 @@ public class SQSConsumer extends AbstractMessageConsumer<Message> {
           for (Message message : messages) {
             // enqueue the next message for processing -- this call may wait
             // for enough room in the queue for the messages to be enqueued
-            this.enqueueMessages(service, message);
+            this.enqueueMessages(processor, message);
           }
 
         } catch (SdkException e) {

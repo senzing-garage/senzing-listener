@@ -5,6 +5,7 @@ import com.senzing.cmdline.CommandLineUtilities;
 
 import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.util.List;
 import java.util.Objects;
@@ -150,6 +151,47 @@ public final class ResourceKey implements Serializable, Comparable<ResourceKey>
     } catch (UnsupportedEncodingException cannotHappen) {
       throw new IllegalStateException("UTF-8 Encoding is not supported");
     }
+  }
+
+  /**
+   * Parses the encoded text as a {@link ResourceKey}.  The encoding is done
+   * by the {@link #toString()} method.  This method returns <code>null</code>
+   * if the specified parameter is <code>null</code>.
+   *
+   * @param text The text to parse.
+   *
+   * @return The {@link ResourceKey} parsed from the specified text, or
+   *         <code>null</code> if the specified parameter is <code>null</code>.
+   * @throws IllegalArgumentException If the specified parameter is an empty
+   *                                  string after trimming leading and trailing
+   *                                  white space.
+   */
+  public static ResourceKey parse(String text)
+    throws IllegalArgumentException
+  {
+    // return null if parameter is null
+    if (text == null) return null;
+
+    // trim leading and trailing whitespace
+    text = text.trim();
+    if (text.length() == 0) {
+      throw new IllegalArgumentException(
+          "The specified text cannot be an empty string or only whitespace.");
+    }
+
+    String[] tokens = text.split(":");
+    try {
+      String resourceType = URLDecoder.decode(tokens[0], UTF_8);
+      String[] components = new String[tokens.length - 1];
+      for (int index = 1; index < tokens.length; index++) {
+        components[index - 1] = URLDecoder.decode(tokens[index], UTF_8);
+      }
+      return new ResourceKey(resourceType, components);
+
+    } catch (UnsupportedEncodingException cannotHappen) {
+      throw new IllegalStateException("UTF-8 supporting is not supported.");
+    }
+
   }
 
   /**

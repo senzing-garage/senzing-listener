@@ -2,13 +2,12 @@ package com.senzing.listener.communication;
 
 import com.senzing.listener.communication.exception.MessageConsumerException;
 import com.senzing.listener.communication.exception.MessageConsumerSetupException;
-import com.senzing.listener.service.ListenerService;
+import com.senzing.listener.service.MessageProcessor;
 import com.senzing.listener.service.exception.ServiceExecutionException;
 import com.senzing.listener.service.locking.LockToken;
 import com.senzing.listener.service.locking.LockingService;
 import com.senzing.listener.service.locking.ProcessScopeLockingService;
 import com.senzing.listener.service.locking.ResourceKey;
-import com.senzing.util.AccessToken;
 import com.senzing.util.AsyncWorkerPool;
 import com.senzing.util.JsonUtilities;
 import com.senzing.util.Timers;
@@ -124,8 +123,8 @@ public abstract class AbstractMessageConsumer<M>
 
     /**
      * The average number of milliseconds for an info message to be processed
-     * by the {@link ListenerService} via {@link
-     * ListenerService#process(String)}.
+     * by the {@link MessageProcessor} via {@link
+     * MessageProcessor#process(JsonObject)}.
      */
     averageServiceProcess,
 
@@ -139,28 +138,28 @@ public abstract class AbstractMessageConsumer<M>
     roundTripCount,
 
     /**
-     * The number of times the {@link ListenerService#process(String)} method
-     * has been called to process an info message.
+     * The number of times the {@link MessageProcessor#process(JsonObject)}
+     * method has been called to process an info message.
      */
     serviceProcessCount,
 
     /**
-     * The number of times that the {@link ListenerService#process(String)} has
-     * been called successfully (i.e.: without any exceptions).
+     * The number of times that the {@link MessageProcessor#process(JsonObject)}
+     * has been called successfully (i.e.: without any exceptions).
      */
     serviceProcessSuccessCount,
 
     /**
-     * The number of times that the {@link ListenerService#process(String)} has
-     * been called unsuccessfully (i.e.: with an exceptions being thrown).
+     * The number of times that the {@link MessageProcessor#process(JsonObject)}
+     * has been called unsuccessfully (i.e.: with an exceptions being thrown).
      */
     serviceProcessFailureCount,
 
     /**
-     * The number of times that the {@link ListenerService#process(String)} has
-     * been or will be retried for the same info message due to failures.  This
-     * will be more than the number of failures since a single info message
-     * failing in a batch will trigger the whole batch to be retried.
+     * The number of times that the {@link MessageProcessor#process(JsonObject)}
+     * has been or will be retried for the same info message due to failures.
+     * This will be more than the number of failures since a single info
+     * message failing in a batch will trigger the whole batch to be retried.
      */
     serviceProcessRetryCount,
 
@@ -174,14 +173,14 @@ public abstract class AbstractMessageConsumer<M>
     messageRetryCount,
 
     /**
-     * The ratio of cumulative {@link ListenerService} processing time across
+     * The ratio of cumulative {@link MessageProcessor} processing time across
      * all threads to actual active processing time.
      */
     parallelism,
 
     /**
      * The ratio of the number of times the {@link
-     * #dequeueMessage(ListenerService)} function is called and a message is
+     * #dequeueMessage(MessageProcessor)} function is called and a message is
      * ready to be returned without waiting.
      */
     dequeueHitRatio,
@@ -194,7 +193,7 @@ public abstract class AbstractMessageConsumer<M>
 
     /**
      * The cumulative time spent (in milliseconds) in the {@link
-     * #processMessages(ListenerService)} function.
+     * #processMessages(MessageProcessor)} function.
      */
     processMessages,
 
@@ -224,7 +223,7 @@ public abstract class AbstractMessageConsumer<M>
 
     /**
      * The time spent (in milliseconds) calling {@link
-     * #dequeueMessage(ListenerService)} function to dequeue a message from the
+     * #dequeueMessage(MessageProcessor)} function to dequeue a message from the
      * internal queue.  This includes time waiting for the first message to
      * arrive or the next message to arrive after the last message has been
      * handled.
@@ -234,20 +233,20 @@ public abstract class AbstractMessageConsumer<M>
     /**
      * The time spent (in milliseconds) waiting to obtain the synchronized lock
      * on the consumer in order to call the {@link
-     * #dequeueMessage(ListenerService)} function.
+     * #dequeueMessage(MessageProcessor)} function.
      */
     dequeueBlocking,
 
     /**
      * The time spent (in milliseconds) in the "wait loop" of
-     * {@link #dequeueMessage(ListenerService)} waiting for a message to become
+     * {@link #dequeueMessage(MessageProcessor)} waiting for a message to become
      * available for processing.
      */
     dequeueMessageWaitLoop,
 
     /**
      * The time spent (in milliseconds) in the synchronization wait of
-     * {@link #dequeueMessage(ListenerService)} waiting for a message to become
+     * {@link #dequeueMessage(MessageProcessor)} waiting for a message to become
      * available for processing.  This should be the majority of the time spent
      * in {@link #dequeueMessageWaitLoop}, but isolates the non-busy sleeping
      * time awaiting notification of message arrival.
@@ -267,7 +266,7 @@ public abstract class AbstractMessageConsumer<M>
 
     /**
      * The number of milliseconds spent calling {@link
-     * #enqueueMessages(ListenerService, Object)}.  This can be high if we have
+     * #enqueueMessages(MessageProcessor, Object)}.  This can be high if we have
      * to wait for the pending queue shrink before we can add more messages to
      * it.  This built-in wait is done to throttle pulling from the vendor
      * message queue when we have enough messages already pending processing.
@@ -277,7 +276,7 @@ public abstract class AbstractMessageConsumer<M>
     /***
      * The number of milliseconds spent waiting for the pending queue to shrink
      * so more messages can be added to it when calling {@link
-     * #enqueueMessages(ListenerService, Object)}.
+     * #enqueueMessages(MessageProcessor, Object)}.
      */
     throttleEnqueue,
 
@@ -318,7 +317,7 @@ public abstract class AbstractMessageConsumer<M>
 
     /**
      * The cumulative number of milliseconds spent calling {@link
-     * ListenerService#process(String)}.
+     * MessageProcessor#process(JsonObject)}.
      */
     serviceProcess,
 
@@ -352,6 +351,13 @@ public abstract class AbstractMessageConsumer<M>
      */
     destroy;
 
+    /**
+     * Gets the unit of measure for this statistic.  This is the unit that
+     * the {@link Number} value is measured in when calling {@link
+     * AbstractMessageConsumer#getStatistics()}}
+     *
+     * @return The unit of measure for this statistic.
+     */
     public String getUnits() {
       switch (this) {
         case concurrency:
@@ -461,14 +467,14 @@ public abstract class AbstractMessageConsumer<M>
   private long processedMessageCount = 0L;
 
   /**
-   * The number of times the {@link ListenerService#process(String)} method
-   * has been successfully called.
+   * The number of times the {@link MessageProcessor#process(JsonObject)}
+   * method has been successfully called.
    */
   private long processSuccessCount = 0L;
 
   /**
-   * The number of times the {@link ListenerService#process(String)} method
-   * has been called and thrown an exception.
+   * The number of times the {@link MessageProcessor#process(JsonObject)}
+   * method has been called and thrown an exception.
    */
   private long processFailureCount = 0L;
 
@@ -780,15 +786,15 @@ public abstract class AbstractMessageConsumer<M>
   /**
    * Implemented to verify that the state of this instance is currently
    * {@link State#INITIALIZED}, transitions to {@link State#CONSUMING},
-   * calls {@link #backgroundProcessMessages(ListenerService)} and then
-   * delegates to {@link #doConsume(ListenerService)}.
+   * calls {@link #backgroundProcessMessages(MessageProcessor)} and then
+   * delegates to {@link #doConsume(MessageProcessor)}.
    *
-   * @param service The {@link ListenerService} for processing the messages.
+   * @param processor The {@link MessageProcessor} for processing the messages.
    *
    * @throws MessageConsumerException If a failure occurs.
    */
   @Override
-  public void consume(ListenerService service)
+  public void consume(MessageProcessor processor)
       throws MessageConsumerException
   {
     synchronized (this) {
@@ -803,10 +809,10 @@ public abstract class AbstractMessageConsumer<M>
     }
 
     // startup background processing of enqueued messages
-    this.backgroundProcessMessages(service);
+    this.backgroundProcessMessages(processor);
 
     // delegate
-    this.doConsume(service);
+    this.doConsume(processor);
   }
 
   /**
@@ -815,10 +821,10 @@ public abstract class AbstractMessageConsumer<M>
    * This may require launching a background thread to loop for message
    * consumption.
    *
-   * @param service The {@link ListenerService} to use for processing.
+   * @param processor The {@link MessageProcessor} to use for processing.
    * @throws MessageConsumerException If a failure occurs.
    */
-  protected abstract void doConsume(ListenerService service)
+  protected abstract void doConsume(MessageProcessor processor)
       throws MessageConsumerException;
 
   /**
@@ -1084,10 +1090,10 @@ public abstract class AbstractMessageConsumer<M>
    * contains text that cannot be parsed as JSON then the unrecognized message
    * is logged and no messages are enqueued.
    *
-   * @param service The {@link ListenerService} to enqueue with.
+   * @param processor The {@link MessageProcessor} to enqueue with.
    * @param message The framework-specific message that was received.
    */
-  protected void enqueueMessages(ListenerService service, M message) {
+  protected void enqueueMessages(MessageProcessor processor, M message) {
     if (this.getState() != CONSUMING) {
       throw new IllegalStateException(
           "Cannot enqueue messages in not in the " + CONSUMING + " state.  "
@@ -1156,12 +1162,13 @@ public abstract class AbstractMessageConsumer<M>
   }
 
   /**
-   * Calls the {@link #processMessages(ListenerService)} function in a
+   * Calls the {@link #processMessages(MessageProcessor)} function in a
    * background thread after validating the current state of this instance.
    *
-   * @param service The {@link ListenerService} to use for processing.
+   * @param processor The {@link MessageProcessor} to use for processing.
    */
-  protected synchronized void backgroundProcessMessages(ListenerService service)
+  protected synchronized void backgroundProcessMessages(
+      MessageProcessor  processor)
   {
     // first check if we are even consuming
     synchronized (this) {
@@ -1191,7 +1198,7 @@ public abstract class AbstractMessageConsumer<M>
       // create the thread
       this.processingThread = new Thread(() -> {
         SUPPRESS_PROCESSING_CHECK.set(true);
-        this.processMessages(service);
+        this.processMessages(processor);
       });
 
       // start the thread
@@ -1207,11 +1214,11 @@ public abstract class AbstractMessageConsumer<M>
    * before the processing terminates.  This method does not return until
    * processing is complete.
    *
-   * @param service The {@link ListenerService} to use for consuming the
-   *                messages and optionally providing cross-process cluster
-   *                locking.
+   * @param processor The {@link MessageProcessor} to use for consuming the
+   *                  messages and optionally providing cross-process cluster
+   *                  locking.
    */
-  protected void processMessages(ListenerService service) {
+  protected void processMessages(MessageProcessor processor) {
     try {
       // check if we should validate the current state
       if (!SUPPRESS_PROCESSING_CHECK.get()) {
@@ -1251,7 +1258,7 @@ public abstract class AbstractMessageConsumer<M>
       {
         // initialize the message
         this.timerStart(dequeue, dequeueBlocking);
-        InfoMessage<M> msg = this.dequeueMessage(service);
+        InfoMessage<M> msg = this.dequeueMessage(processor);
         this.timerPause(dequeue);
 
         // check if we have a message
@@ -1266,12 +1273,9 @@ public abstract class AbstractMessageConsumer<M>
           AsyncResult<ProcessResult<M>> result = this.workerPool.execute(() -> {
             timers.pause(waitForWorker.toString());
             try {
-              // get the JSON text
-              String jsonText = toJsonText(infoMsg.getMessage());
-
               // process the message
               timers.start(serviceProcess.toString());
-              service.process(jsonText);
+              processor.process(infoMsg.getMessage());
               timers.pause(serviceProcess.toString());
 
               // in case of success mark it as processed and disposable
@@ -1346,12 +1350,13 @@ public abstract class AbstractMessageConsumer<M>
   /**
    * Dequeues a previously enqueued {@link InfoMessage}.
    *
-   * @param service The {@link ListenerService} that is being used for
-   *                consumption.
+   * @param processor The {@link MessageProcessor} that is being used for
+   *                  consumption.
    *
    * @return The {@link InfoMessage} that was dequeued.
    */
-  protected synchronized InfoMessage<M> dequeueMessage(ListenerService service)
+  protected synchronized InfoMessage<M> dequeueMessage(
+      MessageProcessor  processor)
   {
     this.timerPause(dequeueBlocking);
     this.timerStart(dequeueMessageWaitLoop);
@@ -1391,7 +1396,7 @@ public abstract class AbstractMessageConsumer<M>
 
     // check for a postponed message that is ready
     this.timerStart(checkPostponed);
-    InfoMessage<M> msg = this.getReadyPostponedMessage(service);
+    InfoMessage<M> msg = this.getReadyPostponedMessage(processor);
     this.timerPause(checkPostponed);
 
     // if not null then return the message
@@ -1528,7 +1533,7 @@ public abstract class AbstractMessageConsumer<M>
   /**
    * This method does nothing, but provides a hook so that it may be overridden
    * to do any special handling on the {@link InfoMessage} after it has been
-   * processed by the {@link ListenerService}.
+   * processed by the {@link MessageProcessor}.
    *
    * @param infoMessage The {@link InfoMessage} that was processed.
    */
@@ -1569,11 +1574,11 @@ public abstract class AbstractMessageConsumer<M>
    * InfoMessage} instance that meet the readiness criteria, then
    * <code>null</code> is returned.
    *
-   * @param service The {@link ListenerService} to process the message.
+   * @param processor The {@link MessageProcessor} to process the message.
    * @return The next postponed {@link InfoMessage} that is now ready to try.
    */
   protected synchronized InfoMessage<M> getReadyPostponedMessage(
-      ListenerService service)
+      MessageProcessor processor)
   {
     // get the elapsed time and update the timestamp
     long now                = System.nanoTime();
