@@ -82,7 +82,7 @@ public class G2Service {
       throw new ServiceSetupException(e);
     }
     g2Engine = new G2JNI();
-    int result = g2Engine.initV2(moduleName, configData, verboseLogging);
+    int result = g2Engine.init(moduleName, configData, verboseLogging);
     if (result != G2ServiceDefinitions.G2_VALID_RESULT) {
       StringBuilder errorMessage
           = new StringBuilder("G2 engine failed to initialize with error: ");
@@ -111,11 +111,12 @@ public class G2Service {
    *
    * @throws ServiceExecutionException If a failure occurs.
    */
-  public String getEntity(long g2EntityId, int flags)
+  public String getEntity(long g2EntiyId, long flags)
       throws ServiceExecutionException
   {
     StringBuffer response = new StringBuffer();
-    int result = g2Engine.getEntityByEntityIDV2(g2EntityId, flags, response);
+    int result = g2Engine.getEntityByEntityID(g2EntiyId, flags, response);
+
     if (result != G2ServiceDefinitions.G2_VALID_RESULT) {
       StringBuilder errorMessage
           = new StringBuilder(
@@ -146,7 +147,7 @@ public class G2Service {
       throws ServiceExecutionException
   {
     StringBuffer response = new StringBuffer();
-    int flags;
+    long flags;
     if (!(includeFullFeatures || includeFeatureStats)) {
       flags = G2_ENTITY_DEFAULT_FLAGS;
     } else {
@@ -160,7 +161,7 @@ public class G2Service {
         flags |= G2_ENTITY_OPTION_INCLUDE_FEATURE_STATS;
       }
     }
-    int result = g2Engine.getEntityByEntityIDV2(g2EntiyId, flags, response);
+    int result = g2Engine.getEntityByEntityID(g2EntiyId, flags, response);
     if (result != G2ServiceDefinitions.G2_VALID_RESULT) {
       StringBuilder errorMessage
           = new StringBuilder(
@@ -185,10 +186,10 @@ public class G2Service {
    */
   public String getEntity(String dataSource, String recordId) throws ServiceExecutionException {
     StringBuffer response = new StringBuffer();
-    int result = g2Engine.getEntityByRecordIDV2(dataSource,
-                                                recordId,
-                                                G2_ENTITY_DEFAULT_FLAGS,
-                                                response);
+    int result = g2Engine.getEntityByRecordID(dataSource,
+                                              recordId,
+                                              G2_ENTITY_DEFAULT_FLAGS,
+                                              response);
     if (result != G2ServiceDefinitions.G2_VALID_RESULT) {
       StringBuilder errorMessage
           = new StringBuilder(
@@ -230,9 +231,9 @@ public class G2Service {
       throws ServiceExecutionException
   {
     StringBuffer response = new StringBuffer();
-    int result = g2Engine.searchByAttributesV2(criteria,
-                                               G2_ENTITY_DEFAULT_FLAGS,
-                                               response);
+    int result = g2Engine.searchByAttributes(criteria,
+                                             G2_ENTITY_DEFAULT_FLAGS,
+                                             response);
     if (result != G2ServiceDefinitions.G2_VALID_RESULT) {
       StringBuilder errorMessage
           = new StringBuilder(

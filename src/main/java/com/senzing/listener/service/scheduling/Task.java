@@ -317,6 +317,7 @@ public class Task {
    *
    * @return The deserialized {@link Task}.
    */
+  @SuppressWarnings("unchecked")
   static Task parse(String jsonText) {
     JsonObject jsonObject = parseJsonObject(jsonText);
 
