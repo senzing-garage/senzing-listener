@@ -2,6 +2,7 @@ package com.senzing.listener.communication;
 
 import com.senzing.listener.communication.exception.MessageConsumerException;
 import com.senzing.listener.service.ListenerService;
+import com.senzing.listener.service.MessageProcessor;
 import com.senzing.listener.service.exception.ServiceExecutionException;
 import com.senzing.util.JsonUtilities;
 
@@ -436,7 +437,7 @@ public class AbstractMessageConsumerTest {
         // ignore
       }
     }
-    protected void doConsume(ListenerService service) {
+    protected void doConsume(MessageProcessor processor) {
       this.consumptionThread = new Thread(() -> {
         long start = System.nanoTime() - 15000000000L;
         int timeoutCount = 0;
@@ -462,7 +463,7 @@ public class AbstractMessageConsumerTest {
               long now = System.nanoTime() / 1000000L;
               this.dequeuedMap.put(msg, now);
             }
-            this.enqueueMessages(service, msg);
+            this.enqueueMessages(processor, msg);
           }
 
           // check for messages that have timed out and enqueue them again
@@ -816,7 +817,7 @@ public class AbstractMessageConsumerTest {
       return counts;
     }
 
-    public void init(String config) {
+    public void init(JsonObject config) {
       // do nothing
     }
 
@@ -1094,8 +1095,8 @@ public class AbstractMessageConsumerTest {
     Map<Statistic, Number> stats = consumer.getStatistics();
 
     Number messageRetryCount  = stats.get(Statistic.messageRetryCount);
-    Number processRetryCount  = stats.get(Statistic.serviceProcessRetryCount);
-    Number statsFailureCount  = stats.get(Statistic.serviceProcessFailureCount);
+    Number processRetryCount  = stats.get(Statistic.processRetryCount);
+    Number statsFailureCount  = stats.get(Statistic.processFailureCount);
 
     if (failureRate == 0.0) {
       assertEquals(consumer.getExpectedFailureCount(), statsFailureCount,

@@ -1,5 +1,7 @@
 package com.senzing.listener.service.scheduling;
 
+import com.senzing.listener.service.exception.ServiceExecutionException;
+
 import java.util.List;
 import java.util.Objects;
 
@@ -95,12 +97,14 @@ public class DefaultScheduler implements Scheduler {
   /**
    * {@inheritDoc}
    */
-  public void commit() {
-    if (this.service == null) return;
-    if (this.taskGroup != null) {
-      this.service.scheduleTasks(this.pendingTasks);
-      this.pendingTasks.clear();
-      this.service = null;
-    }
+  public int commit() throws ServiceExecutionException {
+    if (this.service == null) return 0;
+    if (this.taskGroup == null)  return 0;
+
+    this.service.scheduleTasks(this.pendingTasks);
+    int count = this.pendingTasks.size();
+    this.pendingTasks.clear();
+    this.service = null;
+    return count;
   }
 }

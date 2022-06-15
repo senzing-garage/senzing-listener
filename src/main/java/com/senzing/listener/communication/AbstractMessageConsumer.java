@@ -3,11 +3,8 @@ package com.senzing.listener.communication;
 import com.senzing.listener.communication.exception.MessageConsumerException;
 import com.senzing.listener.communication.exception.MessageConsumerSetupException;
 import com.senzing.listener.service.MessageProcessor;
-import com.senzing.listener.service.exception.ServiceExecutionException;
-import com.senzing.listener.service.locking.LockToken;
 import com.senzing.listener.service.locking.LockingService;
 import com.senzing.listener.service.locking.ProcessScopeLockingService;
-import com.senzing.listener.service.locking.ResourceKey;
 import com.senzing.util.AsyncWorkerPool;
 import com.senzing.util.JsonUtilities;
 import com.senzing.util.Timers;
@@ -29,19 +26,8 @@ import static com.senzing.listener.communication.AbstractMessageConsumer.Statist
  *
  * @param <M> The type for the framework-specific messages received.
  */
-public abstract class AbstractMessageConsumer<M>
-    implements MessageConsumer
+public abstract class AbstractMessageConsumer<M> implements MessageConsumer
 {
-  /**
-   * The JSON property key for the array of effected entities.
-   */
-  public static final String AFFECTED_ENTITIES_KEY = "AFFECTED_ENTITIES";
-
-  /**
-   * The JSON property key for the entity ID.
-   */
-  public static final String ENTITY_ID_KEY = "ENTITY_ID";
-
   /**
    * The default concurrency.  The default is to serialize message handling in
    * a single thread.
@@ -49,16 +35,10 @@ public abstract class AbstractMessageConsumer<M>
   public static final int DEFAULT_CONCURRENCY = 1;
 
   /**
-   * The default number of milliseconds for the {@link #POSTPONED_TIMEOUT_KEY}
-   * initialization parameter.
-   */
-  public static final long DEFAULT_POSTPONED_TIMEOUT = 50L;
-
-  /**
-   * The default number of milliseconds for the {@link #STANDARD_TIMEOUT_KEY}
+   * The default number of milliseconds for the {@link #TIMEOUT_KEY}
    * initialization parameter if not otherwise specified.
    */
-  public static final long DEFAULT_STANDARD_TIMEOUT = 1500L;
+  public static final long DEFAULT_TIMEOUT = 1500L;
 
   /**
    * The config property key for configuring the concurrency.
@@ -67,22 +47,31 @@ public abstract class AbstractMessageConsumer<M>
 
   /**
    * The initialization parameter to specify the number of milliseconds to
-   * sleep between checks on the locks required for messages that have been
-   * postponed due to contention.  If not configured then the value is set to
-   * {@link #DEFAULT_POSTPONED_TIMEOUT}.  If the value is specified it should
-   * be non-negative.
+   * sleep between checking to see if message processing should cease.  If not
+   * configured then the value is set to {@link #DEFAULT_TIMEOUT}.
+   * If the value is specified it should be non-negative.
    */
-  public static final String POSTPONED_TIMEOUT_KEY = "postponedTimeout";
+  public static final String TIMEOUT_KEY = "timeout";
 
   /**
-   * The initialization parameter to specify the number of milliseconds to
-   * sleep between checking to see if message processing should cease.  This
-   * timeout is used when there are no postponed messages due to contention.
-   * If not configured then the value is set to {@link
-   * #DEFAULT_STANDARD_TIMEOUT}.  If the value is specified it should be
-   * non-negative.
+   * Millisecond units constant for {@link Statistic} instances.
    */
-  public static final String STANDARD_TIMEOUT_KEY = "standardTimeout";
+  private static final String MILLISECOND_UNITS = "ms";
+
+  /**
+   * Thread units constant for {@link Statistic} instances.
+   */
+  private static final String THREAD_UNITS = "threads";
+
+  /**
+   * Message units constant for {@link Statistic} instances.
+   */
+  private static final String MESSAGE_UNITS = "messages";
+
+  /**
+   * Call units constant for {@link Statistic} instances.
+   */
+  private static final String CALL_UNITS = "calls";
 
   /**
    * The various keys used for timing operations.
@@ -91,27 +80,20 @@ public abstract class AbstractMessageConsumer<M>
     /**
      * The number of worker threads used to asynchronously consume the messages.
      */
-    concurrency,
+    concurrency(THREAD_UNITS),
 
     /**
-     * The timeout to use when waiting for new messages to show up when there
-     * are no postponed messages. When there are postponed messages then
-     * {@link #postponedTimeout} is used.
+     * The timeout to use when waiting for new messages to show up  and to
+     * check to see if message processing has ceased.
      */
-    standardTimeout,
-
-    /**
-     * The number of milliseconds to sleep between checks on the locks required
-     * for messages that have been postponed due to contention.
-     */
-    postponedTimeout,
+    timeout(MILLISECOND_UNITS),
 
     /**
      * The average number of milliseconds for a message to be pulled from the
      * vendor message queue until it has been completely processed.  For batches
      * this means that every message in the batch has been processed.
      */
-    averageRoundTrip,
+    averageRoundTrip(MILLISECOND_UNITS),
 
     /**
      * The longest amount of time (in milliseconds) for when a message was
@@ -119,14 +101,14 @@ public abstract class AbstractMessageConsumer<M>
      * For batches this means the number of milliseconds it took until every
      * message in the batch was processed.
      */
-    longestRoundTrip,
+    longestRoundTrip(MILLISECOND_UNITS),
 
     /**
      * The average number of milliseconds for an info message to be processed
      * by the {@link MessageProcessor} via {@link
      * MessageProcessor#process(JsonObject)}.
      */
-    averageServiceProcess,
+    averageServiceProcess(MILLISECOND_UNITS),
 
     /**
      * The number of messages that have made the round trip from the vendor
@@ -135,25 +117,25 @@ public abstract class AbstractMessageConsumer<M>
      * messages may make the round trip more than once if a failure occurs in
      * processing part or all of the message.
      */
-    roundTripCount,
+    roundTripCount(MESSAGE_UNITS),
 
     /**
      * The number of times the {@link MessageProcessor#process(JsonObject)}
      * method has been called to process an info message.
      */
-    serviceProcessCount,
+    processCount(CALL_UNITS),
 
     /**
      * The number of times that the {@link MessageProcessor#process(JsonObject)}
      * has been called successfully (i.e.: without any exceptions).
      */
-    serviceProcessSuccessCount,
+    processSuccessCount(CALL_UNITS),
 
     /**
      * The number of times that the {@link MessageProcessor#process(JsonObject)}
      * has been called unsuccessfully (i.e.: with an exceptions being thrown).
      */
-    serviceProcessFailureCount,
+    processFailureCount(CALL_UNITS),
 
     /**
      * The number of times that the {@link MessageProcessor#process(JsonObject)}
@@ -161,7 +143,7 @@ public abstract class AbstractMessageConsumer<M>
      * This will be more than the number of failures since a single info
      * message failing in a batch will trigger the whole batch to be retried.
      */
-    serviceProcessRetryCount,
+    processRetryCount(CALL_UNITS),
 
     /**
      * The number of messages from the vendor message queue that will be
@@ -170,56 +152,44 @@ public abstract class AbstractMessageConsumer<M>
      * so the number of message retries could actually be less than the number
      * of failures.
      */
-    messageRetryCount,
+    messageRetryCount(MESSAGE_UNITS),
 
     /**
      * The ratio of cumulative {@link MessageProcessor} processing time across
      * all threads to actual active processing time.
      */
-    parallelism,
+    parallelism(null),
 
     /**
      * The ratio of the number of times the {@link
      * #dequeueMessage(MessageProcessor)} function is called and a message is
      * ready to be returned without waiting.
      */
-    dequeueHitRatio,
-
-    /**
-     * The greatest number of info messages to be postponed at any given time
-     * due to contention on the affected entities.
-     */
-    greatestPostponedCount,
+    dequeueHitRatio(null),
 
     /**
      * The cumulative time spent (in milliseconds) in the {@link
      * #processMessages(MessageProcessor)} function.
      */
-    processMessages,
+    processMessages(MILLISECOND_UNITS),
 
     /**
      * The cumulative time spent (in milliseconds) actively processing messages.
      * This excludes time waiting for messages to arrive.
      */
-    activelyProcessing,
+    activelyProcessing(MILLISECOND_UNITS),
 
     /**
      * The cumulative time spent (in milliseconds) waiting for messages to
      * arrive from the vendor message queue and get moved to the internal queue.
      */
-    waitingForMessages,
-
-    /**
-     * The cumulative time spent (in milliseconds) not processing messages
-     * while waiting for locks to be released for postponed messages.
-     */
-    waitingOnPostponed,
+    waitingForMessages(MILLISECOND_UNITS),
 
     /**
      * The time spent (in milliseconds) between handing a message off to a
      * worker for processing and obtaining the next message to be processed.
      */
-    betweenMessages,
+    betweenMessages(MILLISECOND_UNITS),
 
     /**
      * The time spent (in milliseconds) calling {@link
@@ -228,21 +198,21 @@ public abstract class AbstractMessageConsumer<M>
      * arrive or the next message to arrive after the last message has been
      * handled.
      */
-    dequeue,
+    dequeue(MILLISECOND_UNITS),
 
     /**
      * The time spent (in milliseconds) waiting to obtain the synchronized lock
      * on the consumer in order to call the {@link
      * #dequeueMessage(MessageProcessor)} function.
      */
-    dequeueBlocking,
+    dequeueBlocking(MILLISECOND_UNITS),
 
     /**
      * The time spent (in milliseconds) in the "wait loop" of
      * {@link #dequeueMessage(MessageProcessor)} waiting for a message to become
      * available for processing.
      */
-    dequeueMessageWaitLoop,
+    dequeueMessageWaitLoop(MILLISECOND_UNITS),
 
     /**
      * The time spent (in milliseconds) in the synchronization wait of
@@ -251,18 +221,12 @@ public abstract class AbstractMessageConsumer<M>
      * in {@link #dequeueMessageWaitLoop}, but isolates the non-busy sleeping
      * time awaiting notification of message arrival.
      */
-    dequeueMessageWait,
-
-    /**
-     * The time spent (in milliseconds) checking to see if a message on the
-     * pending queue is locked and should be postponed for later processing.
-     */
-    dequeueCheckLocked,
+    dequeueMessageWait(MILLISECOND_UNITS),
 
     /**
      * The number of milliseconds spent calling {@link #init(String)}.
      */
-    initialize,
+    initialize(MILLISECOND_UNITS),
 
     /**
      * The number of milliseconds spent calling {@link
@@ -271,14 +235,14 @@ public abstract class AbstractMessageConsumer<M>
      * it.  This built-in wait is done to throttle pulling from the vendor
      * message queue when we have enough messages already pending processing.
      */
-    enqueue,
+    enqueue(MILLISECOND_UNITS),
 
     /***
      * The number of milliseconds spent waiting for the pending queue to shrink
      * so more messages can be added to it when calling {@link
      * #enqueueMessages(MessageProcessor, Object)}.
      */
-    throttleEnqueue,
+    throttleEnqueue(MILLISECOND_UNITS),
 
     /**
      * A subset of {@link #throttleEnqueue}, this is specifically the number of
@@ -287,96 +251,66 @@ public abstract class AbstractMessageConsumer<M>
      * This should be the majority of the time logged for {@link
      * #throttleEnqueue}.
      */
-    throttleWait,
-
-    /**
-     * The cumulative number of milliseconds spent checking postponed messages
-     * to see if they are now ready to be processed.
-     */
-    checkPostponed,
-
-    /**
-     * The cumulative number of milliseconds spent getting the list of
-     * inter-process cluster-wide locks (if implemented).  If cluster locking is
-     * not implemented, then this should be negligible.
-     */
-    getClusterLocks,
-
-    /**
-     * The cumulative number of milliseconds spent obtaining locks on the
-     * affected entities whether they be cluster-wide locks or in-process locks.
-     */
-    obtainLocks,
+    throttleWait(MILLISECOND_UNITS),
 
     /**
      * The cumulative number of milliseconds spent waiting for an available
      * worker thread to process an info message that has been pulled from the
      * pending queue.
      */
-    waitForWorker,
+    waitForWorker(MILLISECOND_UNITS),
 
     /**
      * The cumulative number of milliseconds spent calling {@link
      * MessageProcessor#process(JsonObject)}.
      */
-    serviceProcess,
+    serviceProcess(MILLISECOND_UNITS),
 
     /**
      * The cumulative number of milliseconds spent calling {@link
      * InfoMessage#markProcessed(boolean)}.
      */
-    markProcessed,
-
-    /**
-     * The cumulative number of milliseconds spent releasing locks on affected
-     * entities whether they be cluster locks or local locks.
-     */
-    releaseLocks,
+    markProcessed(MILLISECOND_UNITS),
 
     /**
      * The cumulative number of milliseconds spent calling {@link
      * #disposeMessage(Object)}.
      */
-    disposeMessage,
+    disposeMessage(MILLISECOND_UNITS),
 
     /**
      * The cumulative number of milliseconds spent calling {@link
      * #postProcess(InfoMessage)}.
      */
-    postProcess,
+    postProcess(MILLISECOND_UNITS),
 
     /**
      * The cumulative number of milliseconds spent calling {@link
      * #destroy()}.
      */
-    destroy;
+    destroy(MILLISECOND_UNITS);
 
     /**
-     * Gets the unit of measure for this statistic.  This is the unit that
-     * the {@link Number} value is measured in when calling {@link
-     * AbstractMessageConsumer#getStatistics()}}
+     * Constructs with the specified units.
      *
-     * @return The unit of measure for this statistic.
+     * @param units The units to construct with.
+     */
+    Statistic(String units) {
+      this.units = units;
+    }
+
+    /**
+     * The units for this instance.
+     */
+    private String units;
+
+    /**
+     * Returns the units associated with this statistic.
+     *
+     * @return The units associated with this statistic.
      */
     public String getUnits() {
-      switch (this) {
-        case concurrency:
-          return "threads";
-        case roundTripCount:
-        case messageRetryCount:
-          return "messages";
-        case serviceProcessCount:
-        case serviceProcessSuccessCount:
-        case serviceProcessFailureCount:
-        case serviceProcessRetryCount:
-        case greatestPostponedCount:
-          return "info messages";
-        case parallelism:
-        case dequeueHitRatio:
-          return null;
-        default:
-          return "ms";
-      }
+      return this.units;
     }
   }
 
@@ -403,19 +337,10 @@ public abstract class AbstractMessageConsumer<M>
   private AsyncWorkerPool<ProcessResult<M>> workerPool = null;
 
   /**
-   * The number of milliseconds to sleep between checks on the locks required
-   * for messages that have been postponed due to contention.  This timeout is
-   * used when there are pending messages that have been postponed due to
-   * contention.
-   */
-  private long postponedTimeout = DEFAULT_POSTPONED_TIMEOUT;
-
-  /**
    * The number of milliseconds to sleep between checking to see if message
-   * processing should cease.  This timeout is used when there are no postponed
-   * messages due to contention.
+   * processing should cease.
    */
-  private long standardTimeout = DEFAULT_STANDARD_TIMEOUT;
+  private long timeout = DEFAULT_TIMEOUT;
 
   /**
    * The {@link List} of pending messages.
@@ -423,20 +348,9 @@ public abstract class AbstractMessageConsumer<M>
   private List<InfoMessage<M>> pendingMessages;
 
   /**
-   * The {@link List} of delayed messages.
-   */
-  private List<InfoMessage<M>> postponedMessages;
-
-  /**
    * The background thread used for processing messages.
    */
   private Thread processingThread = null;
-
-  /**
-   * The nanosecond timestamp when the postponed messages were last checked to
-   * see if one was ready.
-   */
-  private long postponedNanoTime = -2 * (DEFAULT_POSTPONED_TIMEOUT * 1000000L);
 
   /**
    * The total of the number of milliseconds each of the message batches
@@ -513,11 +427,6 @@ public abstract class AbstractMessageConsumer<M>
   private long dequeueMissCount = 0L;
 
   /**
-   * The greatest number of info messages that are postponed at any one time.
-   */
-  private int greatestPostponedCount = 0;
-
-  /**
    * The processing {@link Timers}.
    */
   private final Timers timers = new Timers();
@@ -563,15 +472,6 @@ public abstract class AbstractMessageConsumer<M>
   }
 
   /**
-   * Gets the number of postponed messages.
-   *
-   * @return The number of postponed messages.
-   */
-  protected synchronized int getPostponedMessageCount() {
-    return this.postponedMessages.size();
-  }
-
-  /**
    * Returns the maximum number of messages allowed in the pending queue.  When
    * this limit is reached enqueueing additional messages will be blocked until
    * the queue reduces in size.
@@ -614,7 +514,7 @@ public abstract class AbstractMessageConsumer<M>
    * @param hit <code>true</code> if we have a "hit" and there is a message
    *            ready to be dequeued, otherwise <code>false</code> for a "miss".
    */
-  protected void incrementDequeueHitCount(boolean hit) {
+  protected void updateDequeueHitRatio(boolean hit) {
     synchronized (this.getStatisticsMonitor()) {
       if (hit) {
         this.dequeueHitCount++;
@@ -646,20 +546,6 @@ public abstract class AbstractMessageConsumer<M>
   }
 
   /**
-   * Returns the greatest number of info messages that have been postponed due
-   * to contention on the affected entities at any given time during processing.
-   *
-   * @return The greatest number of info messages that have been postponed due
-   *         to contention on the affected entities at any given time during
-   *         processing.
-   */
-  public int getGreatestPostponedCount() {
-    synchronized (this.getStatisticsMonitor()) {
-      return this.greatestPostponedCount;
-    }
-  }
-
-  /**
    * Gets the {@link Map} of {@link Statistic} keys to their {@link Number}
    * values in an atomic thread-safe manner.
    *
@@ -673,23 +559,19 @@ public abstract class AbstractMessageConsumer<M>
       Map<Statistic, Number> statsMap = new LinkedHashMap<>();
 
       statsMap.put(Statistic.concurrency, getConcurrency());
-      statsMap.put(Statistic.standardTimeout, getStandardTimeout());
-      statsMap.put(Statistic.postponedTimeout, getPostponedTimeout());
       statsMap.put(averageRoundTrip, this.getAverageRoundTripMillis());
       statsMap.put(longestRoundTrip, this.getLongestRoundTripMillis());
       statsMap.put(averageServiceProcess, this.getAverageProcessMillis());
       statsMap.put(roundTripCount, this.getCompletedMessageCount());
       statsMap.put(messageRetryCount, this.getMessageRetryCount());
-      statsMap.put(serviceProcessCount, this.getProcessedInfoMessageCount());
-      statsMap.put(serviceProcessSuccessCount,
+      statsMap.put(processCount, this.getProcessedInfoMessageCount());
+      statsMap.put(Statistic.processSuccessCount,
                    this.getInfoMessageSuccessCount());
-      statsMap.put(serviceProcessFailureCount,
+      statsMap.put(Statistic.processFailureCount,
                    this.getInfoMessageFailureCount());
-      statsMap.put(serviceProcessRetryCount, this.getInfoMessageRetryCount());
+      statsMap.put(Statistic.processRetryCount, this.getInfoMessageRetryCount());
       statsMap.put(parallelism, this.getParallelism());
       statsMap.put(dequeueHitRatio, this.getDequeueHitRatio());
-      statsMap.put(Statistic.greatestPostponedCount,
-                   this.getGreatestPostponedCount());
 
       for (Statistic statistic : Statistic.values()) {
         Number value = timings.get(statistic.toString());
@@ -737,19 +619,11 @@ public abstract class AbstractMessageConsumer<M>
                                             1,
                                             DEFAULT_CONCURRENCY);
 
-        // get the postponed timeout
-        this.postponedTimeout = getConfigLong(jsonConfig,
-                                              POSTPONED_TIMEOUT_KEY,
-                                              0L,
-                                              DEFAULT_POSTPONED_TIMEOUT);
-
         // get the standard timeout
-        this.standardTimeout = getConfigLong(jsonConfig,
-                                             STANDARD_TIMEOUT_KEY,
-                                             0L,
-                                             DEFAULT_STANDARD_TIMEOUT);
-
-        this.postponedMessages = new LinkedList<>();
+        this.timeout = getConfigLong(jsonConfig,
+                                     TIMEOUT_KEY,
+                                     0L,
+                                     DEFAULT_TIMEOUT);
 
         // create the list of pending messages
         this.pendingMessages = new LinkedList<>();
@@ -841,7 +715,7 @@ public abstract class AbstractMessageConsumer<M>
       // wait until no longer processing
       while (this.isProcessing()) {
         try {
-          this.wait(this.getStandardTimeout());
+          this.wait(this.getTimeout());
         } catch (InterruptedException ignore) {
           // do nothing
         }
@@ -885,19 +759,6 @@ public abstract class AbstractMessageConsumer<M>
   }
 
   /**
-   * Gets the number of milliseconds to sleep between checks on the locks
-   * required for messages that have been postponed due to contention.  This
-   * timeout is used when there are pending messages that have been postponed
-   * due to contention.
-   *
-   * @return The number of milliseconds to sleep between checks on the locks
-   *         required for messages that have been postponed due to contention.
-   */
-  protected long getPostponedTimeout() {
-    return this.postponedTimeout;
-  }
-
-  /**
    * Gets the number of milliseconds to sleep between checking to see if message
    * processing should cease.  This timeout is used when there are no postponed
    * messages due to contention.
@@ -906,8 +767,8 @@ public abstract class AbstractMessageConsumer<M>
    *         message processing should cease.  This timeout is used when there
    *         are no postponed messages due to contention.
    */
-  protected long getStandardTimeout() {
-    return this.standardTimeout;
+  protected long getTimeout() {
+    return this.timeout;
   }
 
   /**
@@ -1137,9 +998,7 @@ public abstract class AbstractMessageConsumer<M>
             // wait until we can add at least one message to the queue
             while (this.pendingMessages.size() >= this.getMaximumPendingCount()) {
               try {
-                long timeout = Math.max(this.getStandardTimeout(),
-                                        this.getPostponedTimeout());
-
+                long timeout = this.getTimeout();
                 this.timerStart(throttleWait);
                 this.wait(timeout); // wait at most the timeout milliseconds
                 this.timerPause(throttleWait);
@@ -1252,9 +1111,7 @@ public abstract class AbstractMessageConsumer<M>
       this.timerStart(processMessages, betweenMessages);
 
       // loop over the messages
-      while (this.getState() == CONSUMING
-          || this.getPendingMessageCount() > 0
-          || this.getPostponedMessageCount() > 0)
+      while (this.getState() == CONSUMING || this.getPendingMessageCount() > 0)
       {
         // initialize the message
         this.timerStart(dequeue, dequeueBlocking);
@@ -1290,11 +1147,6 @@ public abstract class AbstractMessageConsumer<M>
               timers.pause(markProcessed.toString());
 
             } finally {
-              // release any associated locks on the affected entities
-              timers.start(releaseLocks.toString());
-              infoMsg.releaseLocks(this.lockingService);
-              timers.pause(releaseLocks.toString());
-
               // get the associated message batch
               MessageBatch<M> batch = infoMsg.getBatch();
 
@@ -1332,8 +1184,7 @@ public abstract class AbstractMessageConsumer<M>
       } finally {
         this.timerPause(processMessages,
                         activelyProcessing,
-                        waitingForMessages,
-                        waitingOnPostponed);
+                        waitingForMessages);
 
         synchronized (this) {
           this.processing = false;
@@ -1361,25 +1212,21 @@ public abstract class AbstractMessageConsumer<M>
     this.timerPause(dequeueBlocking);
     this.timerStart(dequeueMessageWaitLoop);
 
+    // set the hit flag to true
     boolean hit = true;
 
     // wait for a message to be available
-    while ((this.getState() == CONSUMING)
-        && (this.pendingMessages.size() == 0)
-        && (!this.isPostponedReadyCheckTime()))
+    while ((this.getState() == CONSUMING) && (this.pendingMessages.size() == 0))
     {
-      // flag that we did not get a hit on the queue
+      // if we get here then no message was ready, set hit flag to false
       hit = false;
 
       // toggle the timers
       this.toggleActiveAndWaitingTimers(this.pendingMessages.size(),
-                                        this.postponedMessages.size(),
                                         this.workerPool.isBusy());
 
       // determine how long to wait
-      long timeout = (this.getPostponedMessageCount() > 0)
-          ? Math.min(this.getPostponedTimeout(), this.getStandardTimeout())
-          : this.getStandardTimeout();
+      long timeout = this.getTimeout();
 
       // wait for the designated duration
       this.timerStart(dequeueMessageWait);
@@ -1394,23 +1241,7 @@ public abstract class AbstractMessageConsumer<M>
     }
     this.timerPause(dequeueMessageWaitLoop);
 
-    // check for a postponed message that is ready
-    this.timerStart(checkPostponed);
-    InfoMessage<M> msg = this.getReadyPostponedMessage(processor);
-    this.timerPause(checkPostponed);
-
-    // if not null then return the message
-    if (msg != null) {
-      // ensure the timers are toggled correctly
-      this.timerPause(waitingOnPostponed, waitingForMessages);
-      this.timerStart(activelyProcessing);
-      this.incrementDequeueHitCount(hit);
-
-      // return the message for processing
-      return msg;
-    }
-
-    this.timerStart(dequeueCheckLocked);
+    InfoMessage<M> msg = null;
 
     // if none ready then check if we can grab a pending message
     // NOTE: we do not get more pending messages if state is not CONSUMING
@@ -1418,45 +1249,20 @@ public abstract class AbstractMessageConsumer<M>
       // get the candidate message
       msg = this.pendingMessages.remove(0);
 
-      // attempt to lock the message resources
-      this.timerStart(obtainLocks);
-      boolean locked = msg.acquireLocks(this.lockingService);
-      this.timerPause(obtainLocks);
+      // ensure the timers are toggled correctly
+      this.timerPause(waitingForMessages);
+      this.timerStart(activelyProcessing);
+      this.updateDequeueHitRatio(hit);
 
-      // check if we failed to lock it
-      if (!locked) {
-        // if not locked then postpone the message
-        this.postponedMessages.add(msg);
-
-        // check the postponed count to see if this is now the greatest
-        synchronized (this.getStatisticsMonitor()) {
-          int postponedCount = this.postponedMessages.size();
-          if (postponedCount > this.greatestPostponedCount) {
-            this.greatestPostponedCount = postponedCount;
-          }
-        }
-        this.notifyAll();
-
-      } else {
-        // ensure the timers are toggled correctly
-        this.timerPause(dequeueCheckLocked,
-                        waitingForMessages,
-                        waitingOnPostponed);
-        this.timerStart(activelyProcessing);
-        this.incrementDequeueHitCount(hit);
-
-        // this will short-circuit the loop
-        return msg;
-      }
+      // this will short-circuit the loop
+      return msg;
     }
-    this.timerPause(dequeueCheckLocked);
 
     // toggle the timers
     this.toggleActiveAndWaitingTimers(this.pendingMessages.size(),
-                                      this.postponedMessages.size(),
                                       this.workerPool.isBusy());
 
-    this.incrementDequeueHitCount(false);
+    this.updateDequeueHitRatio(false);
 
     // return null if we get here
     return null;
@@ -1539,95 +1345,6 @@ public abstract class AbstractMessageConsumer<M>
    */
   protected void postProcess(InfoMessage<M> infoMessage) {
     // do nothing
-  }
-
-  /**
-   * Checks if a check should be performed against the readiness of the
-   * postponed messages.  This returns <code>true</code> if and only if there is
-   * at least one postponed messages and the readiness check has not been
-   * performed within the configured postponed timeout.
-   *
-   * @return <code>true</code> if it is time to perform a postponed message
-   *         readiness check, otherwise <code>false</code>.
-   */
-  protected synchronized boolean isPostponedReadyCheckTime() {
-    // no need to do a ready check if no postponed messages
-    if (this.postponedMessages.size() == 0) return false;
-
-    // get the elapsed time and update the timestamp
-    long now                = System.nanoTime();
-    long elapsedNanos       = now - this.postponedNanoTime;
-    long elapsedMillis      = elapsedNanos / 1000000L;
-
-    // check the timestamp
-    return (elapsedMillis >= this.getPostponedTimeout());
-  }
-
-  /**
-   * Returns a previously postponed message that is now ready to be processed.
-   * If the last time this method was called was less than the {@linkplain
-   * #getPostponedTimeout() postpone timeout} then this method returns
-   * <code>null</code> so that the previously postponed messages are not
-   * checked for readiness too frequently.  Otherwise, this method will find
-   * the least recently postponed {@link InfoMessage} whose set of affected
-   * entity IDs are not currently locked.  If there are no postponed {@link
-   * InfoMessage} instance that meet the readiness criteria, then
-   * <code>null</code> is returned.
-   *
-   * @param processor The {@link MessageProcessor} to process the message.
-   * @return The next postponed {@link InfoMessage} that is now ready to try.
-   */
-  protected synchronized InfoMessage<M> getReadyPostponedMessage(
-      MessageProcessor processor)
-  {
-    // get the elapsed time and update the timestamp
-    long now                = System.nanoTime();
-    long elapsedNanos       = now - this.postponedNanoTime;
-    long elapsedMillis      = elapsedNanos / 1000000L;
-
-    // check the timestamp
-    if (elapsedMillis < this.getPostponedTimeout()) {
-      return null;
-    }
-
-    // check if there are no postponed messages
-    if (this.postponedMessages.size() == 0) {
-      // since we have checked all the postponed messages (none) and none are
-      // ready then we need to update the timestamp
-      this.postponedNanoTime = now;
-
-      return null;
-    }
-
-    // iterate through the postponed messages
-    Iterator<InfoMessage<M>> iter = this.postponedMessages.iterator();
-    try {
-      while (iter.hasNext()) {
-        InfoMessage<M> msg = iter.next();
-
-        // attempt to lock
-        // attempt to lock the message resources
-        this.timerStart(obtainLocks);
-        boolean locked = msg.acquireLocks(this.lockingService);
-        this.timerPause(obtainLocks);
-
-        if (locked) {
-          iter.remove();
-          return msg;
-        }
-      }
-
-    } finally {
-      // check if we checked all the messages
-      if (!iter.hasNext()) {
-        // since we have checked all the postponed messages for readiness we
-        // can update the timestamp so we don't busy check again and again
-        this.postponedNanoTime = now;
-      }
-    }
-
-    // if we get here without returning a message then return null
-    return null;
   }
 
   /**
@@ -1847,23 +1564,6 @@ public abstract class AbstractMessageConsumer<M>
     private Boolean disposable;
 
     /**
-     * The {@link Set} of entity IDs for the affected entities.
-     */
-    private Set<Long> affectedEntityIds;
-
-    /**
-     * The {@link Set} of {@link ResourceKey} instances identifying the
-     * resources that must be locked to process this message.
-     */
-    private Set<ResourceKey> resourceKeys;
-
-    /**
-     * The {@link LockToken} associated with the locks obtained for this
-     * instance.
-     */
-    private LockToken lockToken = null;
-
-    /**
      * Flag indicating if the completion of this {@link InfoMessage} completes
      * the batch to which it belongs.
      */
@@ -1888,23 +1588,6 @@ public abstract class AbstractMessageConsumer<M>
       this.message      = message;
       this.disposable   = null;
       this.lastInBatch  = false;
-
-      // create the set of affected entity IDs
-      this.affectedEntityIds = new TreeSet<>();
-      JsonArray affectedArray = message.getJsonArray(AFFECTED_ENTITIES_KEY);
-      for (JsonObject affected : affectedArray.getValuesAs(JsonObject.class)) {
-        this.affectedEntityIds.add(
-            JsonUtilities.getLong(affected, ENTITY_ID_KEY));
-      }
-      this.affectedEntityIds = unmodifiableSet(this.affectedEntityIds);
-
-      // create the set of resource keys
-      this.resourceKeys = new TreeSet<>();
-      for (Long entityId: this.affectedEntityIds) {
-        this.resourceKeys.add(
-            new ResourceKey("ENTITY", String.valueOf(entityId)));
-      }
-      this.resourceKeys = unmodifiableSet(this.resourceKeys);
     }
 
     /**
@@ -1923,76 +1606,6 @@ public abstract class AbstractMessageConsumer<M>
      */
     public JsonObject getMessage() {
       return this.message;
-    }
-
-    /**
-     * Gets the <b>unmodifiable</b> {@link Set} of affected entity IDs from the
-     * underlying info message.
-     *
-     * @return The <b>unmodifiable</b> {@link Set} of affected entity IDs from the
-     *         underlying info message.
-     */
-    public Set<Long> getAffectedEntityIds() {
-      return this.affectedEntityIds;
-    }
-
-    /**
-     * Gets the <b>unmodifiable</b> {@link Set} of {@link ResourceKey} instances
-     * identifying the resources that must be locked to process this message.
-     *
-     * @return The <b>unmodifiable</b> {@link Set} of {@link ResourceKey}
-     *         instances identifying the resources that must be locked to
-     *         process this message.
-     */
-    public Set<ResourceKey> getResourcesKeys() {
-      return this.resourceKeys;
-    }
-
-    /**
-     * Acquires the locks on the resources required for this instance.
-     *
-     * @param lockingService The {@link LockingService} to use.
-     * @return <code>true</code> if the locks were obtained, otherwise
-     *         <code>false</code>.
-     */
-    public synchronized boolean acquireLocks(LockingService lockingService) {
-      if (this.lockToken != null) return true;
-
-      try {
-        this.lockToken = lockingService.acquireLocks(
-            this.getResourcesKeys(), 0L);
-
-      } catch (ServiceExecutionException e) {
-        throw new RuntimeException(e);
-      }
-
-      // check if the lock token is non-null
-      return (this.lockToken != null);
-    }
-
-    /**
-     * Releases the locks previously obtained on the resources required for
-     * this instance.
-     *
-     * @param lockingService The {@link LockingService} to use.
-     */
-    public synchronized void releaseLocks(LockingService lockingService) {
-      if (this.lockToken == null) return;
-
-      try {
-        int count = lockingService.releaseLocks(this.lockToken);
-
-        this.lockToken = null;
-
-        if (this.resourceKeys.size() != count) {
-          throw new IllegalStateException(
-              "Wrong number of locks released.  released=[ " + count
-              + " ], expected=[ " + this.resourceKeys.size() + " ]");
-        }
-
-      } catch (ServiceExecutionException e) {
-        throw new RuntimeException(e);
-      }
     }
 
     /**
@@ -2069,8 +1682,8 @@ public abstract class AbstractMessageConsumer<M>
      * @return A diagnostic {@link String} describing this instance.
      */
     public String toString() {
-      return "affected=[ " + this.getAffectedEntityIds() + " ], disposable=[ "
-              + this.isDisposable() + " ]: " + toJsonText(this.getMessage());
+      return "disposable=[ " + this.isDisposable() + " ]: "
+          + toJsonText(this.getMessage());
     }
   }
 
@@ -2451,34 +2064,27 @@ public abstract class AbstractMessageConsumer<M>
   /**
    * Toggles the active and waiting timers.
    * @param pendingCount The number of pending messages.
-   * @param postponedCount The number of postponed messages.
    * @param busy <code>true</code> if the worker pool is busy, otherwise
    *             <code>false</code>.
    */
   protected void toggleActiveAndWaitingTimers(int     pendingCount,
-                                              int     postponedCount,
                                               boolean busy)
   {
     synchronized (this.getStatisticsMonitor()) {
       // check if there are messages
       if (busy) {
-        this.timerPause(waitingForMessages, waitingOnPostponed);
+        this.timerPause(waitingForMessages);
         this.timerStart(activelyProcessing);
 
-      } else if (pendingCount == 0 && postponedCount == 0) {
-        // no messages pending or postponed
-        this.timerPause(activelyProcessing, waitingOnPostponed);
+      } else if (pendingCount == 0) {
+        // no messages pending
+        this.timerPause(activelyProcessing);
         this.timerStart(waitingForMessages);
 
       } else if (pendingCount > 0) {
         // messages pending
-        this.timerPause(waitingForMessages, waitingOnPostponed);
+        this.timerPause(waitingForMessages);
         this.timerStart(activelyProcessing);
-
-      } else if (postponedCount > 0) {
-        // none pending, but some postponed
-        this.timerPause(activelyProcessing, waitingForMessages);
-        this.timerStart(waitingOnPostponed);
       }
     }
   }

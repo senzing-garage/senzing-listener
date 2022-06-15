@@ -734,14 +734,36 @@ public class TaskBuilder {
 
   /**
    * Adds a required resource that must be locked for exclusive access when
-   * the associated task is perfo
+   * the associated task is performed.
    *
+   * @param resourceType The type of resource being identified.
+   * @param components Zero or more key components that more specifically
+   *                   identify the resource.
    * @throws IllegalStateException If this instance has already created and
    *                               scheduled a task via {@link #schedule()}.
    * @throws NullPointerException If the resource type is <code>null</code>.
    */
   public TaskBuilder resource(String resourceType, String... components)
     throws IllegalStateException, NullPointerException
+  {
+    this.resourceKeys.add(new ResourceKey(resourceType, components));
+    return this;
+  }
+
+  /**
+   * Adds a required resource that must be locked for exclusive access when
+   * the associated task is performed.  This variant converts the objects
+   * in the specified components array to {@link String} instances.
+   *
+   * @param resourceType The type of resource being identified.
+   * @param components Zero or more key components that more specifically
+   *                   identify the resource.
+   * @throws IllegalStateException If this instance has already created and
+   *                               scheduled a task via {@link #schedule()}.
+   * @throws NullPointerException If the resource type is <code>null</code>.
+   */
+  public TaskBuilder resource(String resourceType, Object... components)
+      throws IllegalStateException, NullPointerException
   {
     this.resourceKeys.add(new ResourceKey(resourceType, components));
     return this;
@@ -768,7 +790,7 @@ public class TaskBuilder {
    *                                  already been specified for this map
    *                                  parameter.
    */
-  public TaskBuilder param(String name, String... values)
+  public TaskBuilder parameter(String name, String... values)
     throws IllegalStateException, NullPointerException, IllegalArgumentException
   {
     this.checkParamName(name);
@@ -801,7 +823,7 @@ public class TaskBuilder {
    *                                  already been specified for this map
    *                                  parameter.
    */
-  public TaskBuilder param(String name, Integer... values)
+  public TaskBuilder parameter(String name, Integer... values)
     throws IllegalStateException, NullPointerException, IllegalArgumentException
   {
     this.checkParamName(name);
@@ -834,7 +856,7 @@ public class TaskBuilder {
    *                                  already been specified for this map
    *                                  parameter.
    */
-  public TaskBuilder param(String name, Long... values)
+  public TaskBuilder parameter(String name, Long... values)
     throws IllegalStateException, NullPointerException, IllegalArgumentException
   {
     this.checkParamName(name);
@@ -867,7 +889,7 @@ public class TaskBuilder {
    *                                  already been specified for this map
    *                                  parameter.
    */
-  public TaskBuilder param(String name, Float... values)
+  public TaskBuilder parameter(String name, Float... values)
     throws IllegalStateException, NullPointerException, IllegalArgumentException
   {
     this.checkParamName(name);
@@ -900,7 +922,7 @@ public class TaskBuilder {
    *                                  already been specified for this map
    *                                  parameter.
    */
-  public TaskBuilder param(String name, Double... values)
+  public TaskBuilder parameter(String name, Double... values)
     throws IllegalStateException, NullPointerException, IllegalArgumentException
   {
     this.checkParamName(name);
@@ -933,7 +955,7 @@ public class TaskBuilder {
    *                                  already been specified for this map
    *                                  parameter.
    */
-  public TaskBuilder param(String name, BigInteger... values)
+  public TaskBuilder parameter(String name, BigInteger... values)
     throws IllegalStateException, NullPointerException, IllegalArgumentException
   {
     this.checkParamName(name);
@@ -966,7 +988,7 @@ public class TaskBuilder {
    *                                  already been specified for this map
    *                                  parameter.
    */
-  public TaskBuilder param(String name, BigDecimal... values)
+  public TaskBuilder parameter(String name, BigDecimal... values)
     throws IllegalStateException, NullPointerException, IllegalArgumentException
   {
     this.checkParamName(name);
@@ -999,7 +1021,7 @@ public class TaskBuilder {
    *                                  already been specified for this map
    *                                  parameter.
    */
-  public TaskBuilder param(String name, Boolean... values)
+  public TaskBuilder parameter(String name, Boolean... values)
     throws IllegalStateException, NullPointerException, IllegalArgumentException
   {
     this.checkParamName(name);
@@ -1028,7 +1050,7 @@ public class TaskBuilder {
    *                                  already been specified for this map
    *                                  parameter.
    */
-  public TaskBuilder param(String name, JsonArray listValue)
+  public TaskBuilder parameter(String name, JsonArray listValue)
     throws IllegalStateException, NullPointerException, IllegalArgumentException
   {
     this.checkParamName(name);
@@ -1053,7 +1075,7 @@ public class TaskBuilder {
    *                                  already been specified for this map
    *                                  parameter.
    */
-  public TaskBuilder param(String name, JsonObject mapValue)
+  public TaskBuilder parameter(String name, JsonObject mapValue)
     throws IllegalStateException, NullPointerException, IllegalArgumentException
   {
     this.checkParamName(name);
@@ -1077,7 +1099,7 @@ public class TaskBuilder {
    *                                  already been specified for this map
    *                                  parameter.
    */
-  public ListParamBuilder listParam(String name)
+  public ListParamBuilder listParameter(String name)
     throws IllegalStateException, NullPointerException, IllegalArgumentException
   {
     this.checkParamName(name);
@@ -1104,7 +1126,7 @@ public class TaskBuilder {
    *                                  already been specified for this map
    *                                  parameter.
    */
-  public MapParamBuilder mapParam(String name)
+  public MapParamBuilder mapParameter(String name)
     throws IllegalStateException, NullPointerException, IllegalArgumentException
   {
     this.checkParamName(name);

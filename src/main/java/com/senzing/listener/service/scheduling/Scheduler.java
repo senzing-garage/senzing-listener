@@ -1,5 +1,7 @@
 package com.senzing.listener.service.scheduling;
 
+import com.senzing.listener.service.exception.ServiceExecutionException;
+
 /**
  * Provides an interface for creating new tasks to be scheduled and
  * scheduling them.
@@ -42,6 +44,10 @@ public interface Scheduler {
    * and scheduling.  If the {@link Scheduler} has already been committed then
    * this method does nothing.
    *
+   * @return The number of tasks that were scheduled.
+   *
+   * @throws ServiceExecutionException If a failure occurs scheduling the tasks
+   *                                   with the {@link SchedulingService}.
    */
-  void commit();
+  int commit() throws ServiceExecutionException;
 }

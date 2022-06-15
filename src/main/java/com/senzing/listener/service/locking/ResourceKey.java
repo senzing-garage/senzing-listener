@@ -7,6 +7,8 @@ import java.io.Serializable;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -45,6 +47,34 @@ public final class ResourceKey implements Serializable, Comparable<ResourceKey>
     Objects.requireNonNull(resourceType);
     this.resourceType = resourceType;
     this.components = (components == null) ? List.of() : List.of(components);
+  }
+
+  /**
+   * Constructs with the {@link String} key identifying the type of resource
+   * (e.g.: <code>"RECORD"</code>, <code>"ENTITY"</code>, or
+   * <code>"REPORT"</code>) followed by zero or more key components that more
+   * specifically identify the resource within the type of resource (e.g.: an
+   * entity ID or a data source code followed by a record ID).  This constructor
+   * version converts the one or more {@link Object} component instances to
+   * {@link String} instances.
+   *
+   * @param resourceType The type of resource being identified.
+   * @param components Zero or more key components that more specifically
+   *                   identify the resource.
+   * @throws NullPointerException If the resource type is <code>null</code>.
+   */
+  public ResourceKey(String resourceType, Object... components) {
+    Objects.requireNonNull(resourceType);
+    this.resourceType = resourceType;
+    if (components == null) {
+      this.components = List.of();
+    } else {
+      this.components = new ArrayList<>(components.length);
+      for (Object comp : components) {
+        this.components.add(String.valueOf(comp));
+      }
+      this.components = Collections.unmodifiableList(this.components);
+    }
   }
 
   /**

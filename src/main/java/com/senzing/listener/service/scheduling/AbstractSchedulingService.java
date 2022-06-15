@@ -143,7 +143,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    * is not specified.  This is the class name for {@link
    * ProcessScopeLockingService}.
    */
-  public static final String DEFAULT_LOCKING_SERVICE_CLASS
+  public static final String DEFAULT_LOCKING_SERVICE_CLASS_NAME
       = ProcessScopeLockingService.class.getName();
 
   /**
@@ -159,32 +159,32 @@ public abstract class AbstractSchedulingService implements SchedulingService {
       = "lockingServiceConfig";
 
   /**
-   *
+   * Millisecond units constant for {@link Statistic} instances.
    */
   private static final String MILLISECOND_UNITS = "ms";
 
   /**
-   *
+   * Thread units constant for {@link Statistic} instances.
    */
   private static final String THREAD_UNITS = "threads";
 
   /**
-   *
+   * Task units constant for {@link Statistic} instances.
    */
   private static final String TASK_UNITS = "tasks";
 
   /**
-   *
+   * Task group units constant for {@link Statistic} instances.
    */
   private static final String TASK_GROUP_UNITS = "task groups";
 
   /**
-   *
+   * Call units constant for {@link Statistic} instances.
    */
   private static final String CALL_UNITS = "calls";
 
   /**
-   *
+   * Tasks per call units constant for {@link Statistic} instances.
    */
   private static final String TASKS_PER_CALL_UNITS = "tasks per call";
 
@@ -274,7 +274,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
      * The number of follow-up tasks that have made the round trip from
      * being scheduled to the point where they are completely handled.
      */
-    followUpCompletedCount(TASK_UNITS),
+    followUpCompleteCount(TASK_UNITS),
 
     /**
      * The number of follow-up tasks that have been completed successfully.
@@ -289,20 +289,20 @@ public abstract class AbstractSchedulingService implements SchedulingService {
     /**
      * The average number of milliseconds for a task to be handled by the
      * {@link TaskHandler} via {@link
-     * TaskHandler#handle(String,Map,int,Scheduler)}.
+     * TaskHandler#handleTask(String,Map,int,Scheduler)}.
      */
     averageHandleTask(MILLISECOND_UNITS),
 
     /**
      * The number of times the {@link
-     * TaskHandler#handle(String,Map,int,Scheduler)} method has been called
+     * TaskHandler#handleTask(String,Map,int,Scheduler)} method has been called
      * to handle a task (follow-up or not).
      */
     handleTaskCount(CALL_UNITS),
 
     /**
      * The number of times that the {@link
-     * TaskHandler#handle(String,Map,int,Scheduler)} has been called
+     * TaskHandler#handleTask(String,Map,int,Scheduler)} has been called
      * successfully (i.e.: without any exceptions) to handle a task (follow-up
      * or not).
      */
@@ -310,7 +310,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
 
     /**
      * The number of times that the {@link
-     * TaskHandler#handle(String,Map,int,Scheduler)} has been called
+     * TaskHandler#handleTask(String,Map,int,Scheduler)} has been called
      * unsuccessfully (i.e.: with an exceptions being thrown) to handle a task
      * (follow-up or not).
      */
@@ -318,7 +318,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
 
     /**
      * Gets the ratio of the number of times {@link
-     * TaskHandler#handle(String,Map,int,Scheduler)} has been called  for
+     * TaskHandler#handleTask(String,Map,int,Scheduler)} has been called  for
      * follow-up tasks to number of times it has been called for <b>all</b>
      * tasks that have been handled.
      */
@@ -330,7 +330,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
      * messages may make the round trip more than once if a failure occurs in
      * processing part or all of the message.
      */
-    taskGroupCompletedCount(TASK_GROUP_UNITS),
+    taskGroupCompleteCount(TASK_GROUP_UNITS),
 
     /**
      * The number of task groups that had all of their tasks handled
@@ -347,7 +347,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
     /**
      * The average compression ratio of duplicate non-follow-up tasks.  This is
      * the number of total non-follow-up tasks handled divided by the number of
-     * times {@link TaskHandler#handle(String, Map, int, Scheduler)} was called
+     * times {@link TaskHandler#handleTask(String, Map, int, Scheduler)} was called
      * to handle those tasks.
      */
     averageCompression(TASKS_PER_CALL_UNITS),
@@ -356,14 +356,14 @@ public abstract class AbstractSchedulingService implements SchedulingService {
      * The greatest compression ratio achieved by a single non-follow-up task.
      * This the greatest number of duplicate non-follow-up tasks that were
      * collapsed into a single task handling call to {@link
-     * TaskHandler#handle(String, Map, int, Scheduler)}.
+     * TaskHandler#handleTask(String, Map, int, Scheduler)}.
      */
     greatestCompression(TASKS_PER_CALL_UNITS),
 
     /**
      * The average compression ratio of duplicate follow-up tasks.  This is
      * the number of total follow-up tasks handled divided by the number of
-     * times {@link TaskHandler#handle(String, Map, int, Scheduler)} was called
+     * times {@link TaskHandler#handleTask(String, Map, int, Scheduler)} was called
      * to handle those tasks.
      */
     averageFollowUpCompression(TASKS_PER_CALL_UNITS),
@@ -372,7 +372,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
      * The greatest compression ratio achieved by a single follow-up task.
      * This the greatest number of duplicate follow-up tasks that were
      * collapsed into a single task handling call to {@link
-     * TaskHandler#handle(String, Map, int, Scheduler)}.
+     * TaskHandler#handleTask(String, Map, int, Scheduler)}.
      */
     greatestFollowUpCompression(TASKS_PER_CALL_UNITS),
 
@@ -381,6 +381,12 @@ public abstract class AbstractSchedulingService implements SchedulingService {
      * non-follow-up tasks.
      */
     averageTaskGroupSize(TASK_UNITS),
+
+    /**
+     * The greatest number of tasks encountered in a completed task group.
+     * This only considers non-follow-up tasks.
+     */
+    greatestTaskGroupSize(TASK_UNITS),
 
     /**
      * The ratio of cumulative {@link TaskHandler} handling time across
@@ -499,7 +505,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
 
     /**
      * The cumulative number of milliseconds spent calling {@link
-     * TaskHandler#handle(String,Map,int,Scheduler)}.
+     * TaskHandler#handleTask(String,Map,int,Scheduler)}.
      */
     handleTask(MILLISECOND_UNITS),
 
@@ -903,44 +909,6 @@ public abstract class AbstractSchedulingService implements SchedulingService {
   }
 
   /**
-   * Gets the {@link Map} of {@link AbstractMessageConsumer.Statistic} keys to
-   * their {@link Number} values in an atomic thread-safe manner.
-   *
-   * @return The {@link Map} of {@link AbstractMessageConsumer.Statistic} keys
-   *         to their {@link Number} values.
-   */
-  public Map<Statistic, Number> getStatistics() {
-    synchronized (this.getStatisticsMonitor()) {
-      Map<String, Long> timings = this.timers.getTimings();
-
-      Map<Statistic, Number> statsMap = new LinkedHashMap<>();
-
-      statsMap.put(Statistic.concurrency, this.getConcurrency());
-
-
-      return statsMap;
-    }
-  }
-
-  /**
-   * Call this to increment the number of times dequeue has been called with
-   * or without a task ready to be dequeued.  This function is thread-safe
-   * with respect to other statistics.
-   *
-   * @param hit <code>true</code> if we have a "hit" and there is a task ready
-   *            to be dequeued, otherwise <code>false</code> for a "miss".
-   */
-  protected void incrementDequeueHitCount(boolean hit) {
-    synchronized (this.getStatisticsMonitor()) {
-      if (hit) {
-        this.dequeueHitCount++;
-      } else {
-        this.dequeueMissCount++;
-      }
-    }
-  }
-
-  /**
    * Gets the concurrency of the scheduler -- this is the number of threads it
    * will use to handle tasks.  The returned value will be a positive number
    * greater than or equal to one (1).
@@ -950,6 +918,23 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    */
   public int getConcurrency() {
     return this.concurrency;
+  }
+
+  /**
+   * Gets the default concurrency with which to initialize if one is not specified
+   * in the initialization configuration via the {@link #CONCURRENCY_KEY}
+   * initialization parameter.  By default, this returns {@link
+   * #DEFAULT_CONCURRENCY}, but it may be overridden to return something more
+   * sensible for a derived implementation.
+   *
+   * @return The default concurrency with which to initialize.
+   *
+   * @see #getConcurrency()
+   * @see #CONCURRENCY_KEY
+   * @see #DEFAULT_CONCURRENCY
+   */
+  public int getDefaultConcurrency() {
+    return DEFAULT_CONCURRENCY;
   }
 
   /**
@@ -963,6 +948,23 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    */
   public long getPostponedTimeout() {
     return this.postponedTimeout;
+  }
+
+  /**
+   * Gets the default postponed timeout with which to initialize if one is not
+   * specified in the initialization configuration via the {@link
+   * #POSTPONED_TIMEOUT_KEY} initialization parameter.  By default, this returns
+   * {@link #DEFAULT_POSTPONED_TIMEOUT}, but it may be overridden to return
+   * something more sensible for a derived implementation.
+   *
+   * @return The default postponed timeout with which to initialize.
+   *
+   * @see #getPostponedTimeout()
+   * @see #POSTPONED_TIMEOUT_KEY
+   * @see #DEFAULT_POSTPONED_TIMEOUT
+   */
+  public long getDefaultPostponedTimeout() {
+    return DEFAULT_POSTPONED_TIMEOUT;
   }
 
   /**
@@ -980,6 +982,23 @@ public abstract class AbstractSchedulingService implements SchedulingService {
   }
 
   /**
+   * Gets the default follow-up delay with which to initialize if one is not
+   * specified in the initialization configuration via the {@link
+   * #FOLLOW_UP_DELAY_KEY} initialization parameter.  By default, this returns
+   * {@link #DEFAULT_FOLLOW_UP_DELAY}, but it may be overridden to return
+   * something more sensible for a derived implementation.
+   *
+   * @return The default follow-up delay with which to initialize.
+   *
+   * @see #getFollowUpDelay()
+   * @see #FOLLOW_UP_DELAY_KEY
+   * @see #DEFAULT_FOLLOW_UP_DELAY
+   */
+  public long getDefaultFollowUpDelay() {
+    return DEFAULT_FOLLOW_UP_DELAY;
+  }
+
+  /**
    * The maximum number of milliseconds to defer a follow-up task.  Once a
    * follow-up task has been deferred this number of milliseconds it will no
    * longer be purposely delayed to wait for additional duplicates to be
@@ -990,6 +1009,23 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    */
   public long getFollowUpTimeout() {
     return this.followUpTimeout;
+  }
+
+  /**
+   * Gets the default follow-up timeout with which to initialize if one is not
+   * specified in the initialization configuration via the {@link
+   * #FOLLOW_UP_TIMEOUT_KEY} initialization parameter.  By default, this returns
+   * {@link #DEFAULT_FOLLOW_UP_TIMEOUT}, but it may be overridden to return
+   * something more sensible for a derived implementation.
+   *
+   * @return The default follow-up timeout with which to initialize.
+   *
+   * @see #getFollowUpTimeout()
+   * @see #FOLLOW_UP_TIMEOUT_KEY
+   * @see #DEFAULT_FOLLOW_UP_TIMEOUT
+   */
+  public long getDefaultFollowUpTimeout() {
+    return DEFAULT_FOLLOW_UP_DELAY;
   }
 
   /**
@@ -1007,6 +1043,23 @@ public abstract class AbstractSchedulingService implements SchedulingService {
   }
 
   /**
+   * Gets the default follow-up fetch count with which to initialize if one is
+   * not specified in the initialization configuration via the {@link
+   * #FOLLOW_UP_FETCH_KEY} initialization parameter.  By default, this returns
+   * {@link #DEFAULT_FOLLOW_UP_FETCH}, but it may be overridden to return
+   * something more sensible for a derived implementation.
+   *
+   * @return The default follow-up fetch count with which to initialize.
+   *
+   * @see #getFollowUpFetchCount()
+   * @see #FOLLOW_UP_FETCH_KEY
+   * @see #DEFAULT_FOLLOW_UP_FETCH
+   */
+  public int getDefaultFollowUpFetchCount() {
+    return DEFAULT_FOLLOW_UP_FETCH;
+  }
+
+  /**
    * Gets the number of milliseconds to sleep between checking to see if task
    * handling should cease.  This timeout is used when there are no postponed
    * tasks due to contention.
@@ -1017,6 +1070,23 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    */
   public long getStandardTimeout() {
     return this.standardTimeout;
+  }
+
+  /**
+   * Gets the default standard timeout with which to initialize if one is not
+   * specified in the initialization configuration via the {@link
+   * #STANDARD_TIMEOUT_KEY} initialization parameter.  By default, this returns
+   * {@link #DEFAULT_STANDARD_TIMEOUT}, but it may be overridden to return
+   * something more sensible for a derived implementation.
+   *
+   * @return The default standard timeout with which to initialize.
+   *
+   * @see #getStandardTimeout()
+   * @see #STANDARD_TIMEOUT_KEY
+   * @see #DEFAULT_STANDARD_TIMEOUT
+   */
+  public long getDefaultStandardTimeout() {
+    return DEFAULT_STANDARD_TIMEOUT;
   }
 
   /**
@@ -1058,6 +1128,48 @@ public abstract class AbstractSchedulingService implements SchedulingService {
   }
 
   /**
+   * Gets the default {@link LockingService} class name with which to
+   * initialize the backing {@link LockingService} if one is not specified in
+   * the initialization configuration via the {@link #LOCKING_SERVICE_CLASS_KEY}
+   * initialization parameter.  By default, this returns the {@link
+   * #DEFAULT_LOCKING_SERVICE_CLASS_NAME}, but it may be overridden to return
+   * something more sensible for a derived implementation.
+   *
+   * @return The default {@link LockingService} class name with which to
+   *         initialize.
+   *
+   * @see #initLockingService(JsonObject)
+   * @see #getDefaultLockingServiceConfig()
+   * @see #LOCKING_SERVICE_CLASS_KEY
+   * @see #LOCKING_SERVICE_CONFIG_KEY
+   * @see #DEFAULT_LOCKING_SERVICE_CLASS_NAME
+   */
+  public String getDefaultLockingServiceClassName() {
+    return DEFAULT_LOCKING_SERVICE_CLASS_NAME;
+  }
+
+  /**
+   * Gets the default {@link JsonObject} configuration with which to initialize
+   * the backing {@link LockingService} if one is not specified in the
+   * initialization configuration via the {@link #LOCKING_SERVICE_CONFIG_KEY}
+   * initialization parameter.  By default, this returns the <code>null</code>,
+   * but it may be overridden to return something more sensible for a derived
+   * implementation.
+   *
+   * @return The default {@link JsonObject} configuration with which to
+   *         initialize the backing {@link LockingService}.
+   *
+   * @see #initLockingService(JsonObject)
+   * @see #getDefaultLockingServiceClassName()
+   * @see #LOCKING_SERVICE_CLASS_KEY
+   * @see #LOCKING_SERVICE_CONFIG_KEY
+   * @see #DEFAULT_LOCKING_SERVICE_CLASS_NAME
+   */
+  public JsonObject getDefaultLockingServiceConfig() {
+    return null;
+  }
+
+  /**
    * {@inheritDoc}
    */
   @Override
@@ -1095,8 +1207,16 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    * Schedules the tasks in the specified {@link List}.
    *
    * @param tasks The {@link List} of {@link Task} instances.
+   *
+   * @throws ServiceExecutionException If a failure occurs in scheduling the
+   *                                   tasks.  If a failure occurs then it
+   *                                   should be assumed that the tasks will
+   *                                   not be handled and the associated
+   *                                   message should be retried later.
    */
-  protected void scheduleTasks(List<Task> tasks) {
+  protected void scheduleTasks(List<Task> tasks)
+    throws ServiceExecutionException
+  {
     synchronized (this) {
       State state = this.getState();
       if (state != READY && state != ACTIVE) {
@@ -1162,6 +1282,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
     this.timerPause(dequeueBlocking);
     this.timerStart(dequeueTaskWaitLoop);
 
+    // set the hit flag to true
     boolean hit = true;
 
     // wait for a task to be available
@@ -1170,7 +1291,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
           && (!this.isFollowUpReadyCheckTime())
           && (!this.isPostponedReadyCheckTime()))
     {
-      // flag that we did not get a hit on the queue
+      // if we get here then no task was ready so we have a miss
       hit = false;
 
       // toggle the timers
@@ -1199,8 +1320,19 @@ public abstract class AbstractSchedulingService implements SchedulingService {
     // check for a follow-up task that is ready, this will hit less frequently
     // than postponed tasks if the timeouts and delays are properly configured
     this.timerStart(checkFollowUp);
-    ScheduledTask task = this.getReadyFollowUpTask();
-    this.timerPause(checkFollowUp);
+    ScheduledTask task = null;
+    try {
+      task = this.getReadyFollowUpTask();
+    } catch (ServiceExecutionException e) {
+      System.err.println();
+      System.err.println("**************************************************");
+      System.err.println("FAILED TO OBTAIN A FOLLOW-UP TASK, "
+                             + "DEFERRING FOLLOW-UP TASKS FOR NOW");
+      e.printStackTrace();
+
+    } finally {
+      this.timerPause(checkFollowUp);
+    }
 
     // check if no follow-up task was found, and if not, check postponed tasks
     if (task == null) {
@@ -1215,10 +1347,81 @@ public abstract class AbstractSchedulingService implements SchedulingService {
       // ensure the timers toggled correctly
       this.timerPause(waitingOnPostponed, waitingForTasks);
       this.timerStart(activelyHandling);
-      this.incrementDequeueHitCount(hit);
+      this.updateDequeueHitRatio(hit);
+
+      // update the state
+      if (this.getState() == READY) {
+        this.setState(ACTIVE);
+      }
 
       // return the task for handling
       return task;
+    }
+
+    this.timerStart(dequeueCheckLocked);
+
+    // if none ready then check if we can grab a pending task
+    while (this.pendingTasks.size() > 0) {
+      // get the candidate task
+      task = this.pendingTasks.remove(0);
+
+      // attempt to lock the task resources
+      this.timerStart(obtainLocks);
+      boolean locked = task.acquireLocks(this.getLockingService());
+      this.timerPause(obtainLocks);
+
+      if (!locked) {
+        // if not locked then postpone the task
+        this.postponedTasks.add(task);
+
+        // check the postponed count to see if this is now the greatest
+        synchronized (this.getStatisticsMonitor()) {
+          int postponedCount = this.postponedTasks.size();
+          if (postponedCount > this.greatestPostponedCount) {
+            this.greatestPostponedCount = postponedCount;
+          }
+        }
+
+        // notify all
+        this.notifyAll();
+
+      } else {
+        this.timerPause(dequeueCheckLocked,
+                        waitingForTasks,
+                        waitingOnPostponed);
+        this.timerStart(activelyHandling);
+        this.updateDequeueHitRatio(hit);
+
+        // update the state
+        if (this.getState() == READY) {
+          this.setState(ACTIVE);
+        }
+
+        // this will short-circuit the loop
+        return task;
+      }
+    }
+    this.timerPause(dequeueCheckLocked);
+
+    this.toggleActiveAndWaitingTimers(this.pendingTasks.size(),
+                                      this.postponedTasks.size(),
+                                      this.workerPool.isBusy());
+    this.updateDequeueHitRatio(false);
+
+    // update the state
+    if ((this.getState() == ACTIVE)
+        && (this.pendingTasks.size() == 0)
+        && (this.postponedTasks.size() == 0)
+        && (!this.workerPool.isBusy()))
+    {
+      // no pending or postponed tasks, no tasks being handled and we have none
+      // to return the user (e.g.: follow-up tasks), go from ACTIVE to READY
+      this.setState(READY);
+
+    } else if (this.getState() == READY) {
+      // we are either busy handling tasks or we have pending or postponed tasks
+      // and we are in the READY state so transition to ACTIVE
+      this.setState(ACTIVE);
     }
 
     return null;
@@ -1264,10 +1467,18 @@ public abstract class AbstractSchedulingService implements SchedulingService {
       while (iter.hasNext()) {
         ScheduledTask task = iter.next();
 
-        // attempt to lock
-        // attempt to lock the message resources
+        // remove any aborted tasks
+        this.taskAbortCount += task.removeAborted();
+
+        // check if aborted
+        if (task.getMultiplicity() == 0) {
+          iter.remove();
+          continue;
+        }
+
+        // attempt to lock the task resources
         this.timerStart(obtainLocks);
-        boolean locked = task.acquireLocks(this.lockingService);
+        boolean locked = task.acquireLocks(this.getLockingService());
         this.timerPause(obtainLocks);
 
         if (locked) {
@@ -1325,8 +1536,11 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    * readiness criteria, then <code>null</code> is returned.
    *
    * @return The next postponed {@link ScheduledTask} that is now ready to try.
+   * @throws ServiceExecutionException If a failure occurs in obtaining a
+   *                                   follow-up task.
    */
   protected synchronized ScheduledTask getReadyFollowUpTask()
+    throws ServiceExecutionException
   {
     // get the elapsed time and update the timestamp
     long now                = System.nanoTime();
@@ -1371,7 +1585,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
 
         // attempt to lock the message resources
         this.timerStart(obtainLocks);
-        boolean locked = task.acquireLocks(this.lockingService);
+        boolean locked = task.acquireLocks(this.getLockingService());
         this.timerPause(obtainLocks);
 
         if (locked) {
@@ -1449,7 +1663,8 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    *                                   specified {@link Task} instances
    *
    */
-  protected abstract void enqueueFollowUpTask(Task task);
+  protected abstract void enqueueFollowUpTask(Task task)
+    throws ServiceExecutionException;
 
   /**
    * Retrieves a number of follow-up tasks from persistent storage.
@@ -1462,8 +1677,12 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    *
    * @return The {@link List} of follow-up {@link Task} instances retrieved
    *         from persistent storage.
+   *
+   * @throws ServiceExecutionException If a failure occurs in persisting the
+   *                                   specified {@link Task} instances
    */
-  protected abstract List<ScheduledTask> dequeueFollowUpTasks(int count);
+  protected abstract List<ScheduledTask> dequeueFollowUpTasks(int count)
+      throws ServiceExecutionException;
 
   /**
    * Renews the leases on the specified follow-up tasks from persistent
@@ -1473,16 +1692,24 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    * ScheduledTask#setFollowUpExpiration(long)}.
    *
    * @param tasks The {@link ScheduledTask} instances for lease renewal.
+   *
+   * @throws ServiceExecutionException If a failure occurs in persisting the
+   *                                   specified {@link Task} instances
    */
-  protected abstract void renewFollowUpTasks(List<ScheduledTask> tasks);
+  protected abstract void renewFollowUpTasks(List<ScheduledTask> tasks)
+    throws ServiceExecutionException;
 
   /**
    * Marks the specified follow-up task as complete and removes it from
    * persistent storage and is no longer available for dequeue.
    *
    * @param task The {@link ScheduledTask} to be marked as completed.
+   *
+   * @throws ServiceExecutionException If a failure occurs in persisting the
+   *                                   specified {@link Task} instances
    */
-  protected abstract void completeFollowUpTask(ScheduledTask task);
+  protected abstract void completeFollowUpTask(ScheduledTask task)
+    throws ServiceExecutionException;
 
   /**
    * Calls the {@link #handleTasks()} function in a background thread after
@@ -1581,13 +1808,6 @@ public abstract class AbstractSchedulingService implements SchedulingService {
           this.timerPause(betweenTasks);
           this.timerStart(activelyHandling);
 
-          // ensure the state is set to ACTIVE if currently READY
-          synchronized (this) {
-            if (this.getState() == READY) {
-              this.setState(ACTIVE);
-            }
-          }
-
           // prep a task reference for the
           final ScheduledTask currentTask = task;
           final Timers timers = new Timers();
@@ -1597,10 +1817,10 @@ public abstract class AbstractSchedulingService implements SchedulingService {
               // handle the task
               timers.start(handleTask.toString());
               currentTask.beginHandling();
-              taskHandler.handle(currentTask.getAction(),
-                                 currentTask.getParameters(),
-                                 currentTask.getMultiplicity(),
-                                 this.createFollowUpScheduler(currentTask));
+              taskHandler.handleTask(currentTask.getAction(),
+                                     currentTask.getParameters(),
+                                     currentTask.getMultiplicity(),
+                                     this.createFollowUpScheduler(currentTask));
               timers.pause(handleTask.toString());
 
               // in case of success mark it as handled
@@ -1617,7 +1837,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
             } finally {
               // release any associated locks on the resources
               timers.start(releaseLocks.toString());
-              currentTask.releaseLocks(this.lockingService);
+              currentTask.releaseLocks(this.getLockingService());
               timers.pause(releaseLocks.toString());
 
               // record statistics
@@ -1807,9 +2027,11 @@ public abstract class AbstractSchedulingService implements SchedulingService {
             case FAILED:
               this.taskFailureCount++;
               break;
-            case ABORTED:
-              this.taskAbortCount++;
-              break;
+            default:
+              System.err.println();
+              System.err.println("*******************************************");
+              System.err.println("UNEXPECTED POST-COMPLETION TASK STATE: " + task.getState());
+              System.err.println(task);
           }
 
           long taskTime = task.getRoundTripTime();
@@ -1849,11 +2071,15 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    * conclusion.
    *
    * @param config The {@link JsonObject} describing the configuration.
+   * @param taskHandler The {@link TaskHandler} to use for handling tasks.
    * @throws ServiceSetupException If a failure occurs.
    */
-  public void init(JsonObject config)
+  @Override
+  public void init(JsonObject config, TaskHandler taskHandler)
     throws ServiceSetupException
   {
+    Objects.requireNonNull(taskHandler,
+                           "The specified TaskHandler cannot be null");
     synchronized (this) {
       if (this.getState() != UNINITIALIZED) {
         throw new IllegalStateException(
@@ -1870,40 +2096,43 @@ public abstract class AbstractSchedulingService implements SchedulingService {
         }
 
         this.lockingService = this.initLockingService(config);
+        this.setTaskHandler(taskHandler);
 
         this.concurrency = getConfigInteger(config,
                                             CONCURRENCY_KEY,
                                             1,
-                                            DEFAULT_CONCURRENCY);
+                                            this.getDefaultConcurrency());
+
         // get the postponed timeout
         this.postponedTimeout = getConfigLong(config,
                                               POSTPONED_TIMEOUT_KEY,
                                               0L,
-                                              DEFAULT_POSTPONED_TIMEOUT);
+                                              this.getDefaultPostponedTimeout());
 
         // get the standard timeout
         this.standardTimeout = getConfigLong(config,
                                              STANDARD_TIMEOUT_KEY,
                                              0L,
-                                             DEFAULT_STANDARD_TIMEOUT);
+                                             this.getDefaultStandardTimeout());
 
         // get the follow-up delay
         this.followUpDelay = getConfigLong(config,
                                            FOLLOW_UP_DELAY_KEY,
                                            0L,
-                                           DEFAULT_FOLLOW_UP_DELAY);
+                                           this.getDefaultFollowUpDelay());
 
         // get the follow-up timeout
         this.followUpTimeout = getConfigLong(config,
                                              FOLLOW_UP_TIMEOUT_KEY,
                                              0L,
-                                             DEFAULT_FOLLOW_UP_TIMEOUT);
+                                             this.getDefaultFollowUpTimeout());
 
         // get the follow-up fetch
-        this.followUpFetch = getConfigInteger(config,
-                                              FOLLOW_UP_FETCH_KEY,
-                                              1,
-                                              DEFAULT_FOLLOW_UP_FETCH);
+        this.followUpFetch = getConfigInteger(
+            config,
+            FOLLOW_UP_FETCH_KEY,
+            1,
+            this.getDefaultFollowUpFetchCount());
 
         // check that the follow-up timeout is greater than follow-up delay
         if (this.followUpTimeout < this.followUpDelay) {
@@ -1934,7 +2163,17 @@ public abstract class AbstractSchedulingService implements SchedulingService {
   }
 
   /**
-   * The default implementation of this
+   * The default implementation of this method gets the class name from
+   * the {@link #LOCKING_SERVICE_CLASS_KEY} parameter, constructs an instance
+   * of that class using the default constructor and then initializes the
+   * constructed {@link LockingService} instance using the {@link JsonObject}
+   * found in the specified configuration via the {@link
+   * #LOCKING_SERVICE_CONFIG_KEY} JSON property.
+   *
+   * @param jsonConfig The {@link JsonObject} describing the configuration
+   *                   for this instance of scheduling service.
+   *
+   * @return The {@link LockingService} that was created and initialized.
    */
   @SuppressWarnings("unchecked")
   protected LockingService initLockingService(JsonObject jsonConfig)
@@ -1942,20 +2181,30 @@ public abstract class AbstractSchedulingService implements SchedulingService {
   {
     try {
       // get the LockingService class name from the config
-      String className = getConfigString(jsonConfig,
-                                         LOCKING_SERVICE_CLASS_KEY,
-                                         DEFAULT_LOCKING_SERVICE_CLASS);
+      String className = getConfigString(
+          jsonConfig,
+          LOCKING_SERVICE_CLASS_KEY,
+          this.getDefaultLockingServiceClassName());
 
       // get the LockingService Class object from the class name
       Class lockServiceClass = Class.forName(className);
+
+      if (!LockingService.class.isAssignableFrom(lockServiceClass)) {
+        throw new ServiceSetupException(
+            "The configured locking service class for the "
+                + LOCKING_SERVICE_CLASS_KEY + " config parameter must "
+                + "implement " + LockingService.class.getName());
+      }
 
       // create an instance of the LockingService class
       LockingService lockService = (LockingService)
           lockServiceClass.getConstructor().newInstance();
 
       // get the locking service configuration
-      JsonObject lockServiceConfig = getJsonObject(
-          jsonConfig, LOCKING_SERVICE_CONFIG_KEY);
+      JsonObject lockServiceConfig
+          = (jsonConfig.containsKey(LOCKING_SERVICE_CONFIG_KEY))
+          ? getJsonObject(jsonConfig, LOCKING_SERVICE_CONFIG_KEY)
+          : this.getDefaultLockingServiceConfig();
 
       // initialize the locking service
       lockService.init(lockServiceConfig);
@@ -2075,7 +2324,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
         this.timerStart(activelyHandling);
 
       } else if (pendingCount == 0 && postponedCount == 0) {
-        // no messages pending or postponed
+        // no tasks pending or postponed
         this.timerPause(activelyHandling, waitingOnPostponed);
         this.timerStart(waitingForTasks);
 
@@ -2141,27 +2390,256 @@ public abstract class AbstractSchedulingService implements SchedulingService {
   }
 
   /**
+   * Gets the {@link Map} of {@link AbstractMessageConsumer.Statistic} keys to
+   * their {@link Number} values in an atomic thread-safe manner.
+   *
+   * @return The {@link Map} of {@link AbstractMessageConsumer.Statistic} keys
+   *         to their {@link Number} values.
+   */
+  public Map<Statistic, Number> getStatistics() {
+    synchronized (this.getStatisticsMonitor()) {
+      Number value = null;
+      Map<String, Long> timings = this.timers.getTimings();
+
+      Map<Statistic, Number> statsMap = new LinkedHashMap<>();
+
+      statsMap.put(Statistic.concurrency, this.getConcurrency());
+      statsMap.put(Statistic.standardTimeout, this.getStandardTimeout());
+      statsMap.put(Statistic.postponedTimeout, this.getPostponedTimeout());
+      statsMap.put(Statistic.followUpDelay, this.getFollowUpDelay());
+      statsMap.put(Statistic.followUpTimeout, this.getFollowUpTimeout());
+
+      value = this.getAverageTaskTime();
+      if (value != null) statsMap.put(averageTaskTime, value);
+
+      value = this.getAverageTaskGroupTime();
+      if (value != null) statsMap.put(averageTaskGroupTime, value);
+
+      value = this.getLongestTaskTime();
+      if (value != null) statsMap.put(Statistic.longestTaskTime, value);
+
+      value = this.getLongestTaskGroupTime();
+      if (value != null) statsMap.put(Statistic.longestTaskGroupTime, value);
+
+      statsMap.put(Statistic.taskCompleteCount, this.getCompletedTaskCount());
+      statsMap.put(Statistic.taskSuccessCount, this.getSuccessfulTaskCount());
+      statsMap.put(Statistic.taskFailureCount, this.getFailedTaskCount());
+      statsMap.put(Statistic.taskAbortCount, this.getAbortedTaskCount());
+      statsMap.put(Statistic.followUpCompleteCount,
+                   this.getCompletedFollowUpCount());
+      statsMap.put(Statistic.followUpSuccessCount,
+                   this.getSuccessfulFollowUpCount());
+      statsMap.put(Statistic.followUpFailureCount,
+                   this.getFailedFollowUpCount());
+
+      value = this.getAverageHandleTaskTime();
+      if (value != null) statsMap.put(averageHandleTask, value);
+
+      statsMap.put(handleTaskCount, this.getHandleTaskCount());
+      statsMap.put(handleTaskSuccessCount, this.getSuccessfulHandleTaskCount());
+      statsMap.put(handleTaskFailureCount, this.getFailedHandleTaskCount());
+
+      value = this.getFollowUpHandleTaskRatio();
+      if (value != null) statsMap.put(followUpHandleTaskRatio, value);
+
+      statsMap.put(taskGroupCompleteCount, this.getCompletedTaskGroupCount());
+      statsMap.put(taskGroupSuccessCount, this.getSuccessfulTaskGroupCount());
+      statsMap.put(taskGroupFailureCount, this.getFailedTaskGroupCount());
+
+      value = this.getAverageCompressionRatio();
+      if (value != null) statsMap.put(averageCompression, value);
+
+      value = this.getGreatestCompressionRatio();
+      if (value != null) statsMap.put(greatestCompression, value);
+
+      value = this.getAverageFollowUpCompressionRatio();
+      if (value != null) statsMap.put(averageFollowUpCompression, value);
+
+      value = this.getGreatestFollowUpCompressionRatio();
+      if (value!= null) statsMap.put(greatestFollowUpCompression, value);
+
+      value = this.getAverageTaskGroupSize();
+      if (value != null) statsMap.put(averageTaskGroupSize, value);
+
+      value = this.getGreatestTaskGroupSize();
+      if (value != null) statsMap.put(greatestTaskGroupSize, value);
+
+      value = this.getParallelism();
+      if (value != null) statsMap.put(parallelism, value);
+
+      value = this.getDequeueHitRatio();
+      if (value != null) statsMap.put(dequeueHitRatio, value);
+
+      statsMap.put(Statistic.greatestPostponedCount,
+                   this.getGreatestPostponedCount());
+
+      // now get the timings
+      for (Statistic statistic : Statistic.values()) {
+        value = timings.get(statistic.toString());
+        if (value != null) {
+          statsMap.put(statistic, value);
+        }
+      }
+
+      return statsMap;
+    }
+  }
+
+  /**
+   * Gets the average task compression from collapsing non-follow-up tasks
+   * handled by the scheduling service.  This returns <code>null</code> if no
+   * non-follow-up tasks have been handled.
+   *
+   * @return The average task compression from collapsing non-follow-up tasks
+   *         handled by the scheduling service, or <code>null</code> if no
+   *         non-follow-up tasks have been handled.
+   */
+  public Double getAverageCompressionRatio() {
+    synchronized (this.getStatisticsMonitor()) {
+      if (this.standardHandleCount == 0) return null;
+      double completeCount  = (double) this.taskCompleteCount;
+      double handleCount    = (double) this.standardHandleCount;
+      return completeCount / handleCount;
+    }
+  }
+
+  /**
+   * Gets the greatest task compression from collapsing non-follow-up tasks
+   * handled by the scheduling service.  This returns <code>null</code> if
+   * no tasks have been handled.
+   *
+   * @return The greatest task compression from collapsing non-follow-up tasks
+   *         handled by the scheduling service, or <code>null</code> if no
+   *         tasks have been handled.
+   */
+  public Integer getGreatestCompressionRatio() {
+    synchronized (this.getStatisticsMonitor()) {
+      if (this.greatestMultiplicity <= 0) return null;
+      return this.greatestMultiplicity;
+    }
+  }
+
+  /**
+   * Gets the average task compression from collapsing follow-up tasks
+   * handled by the scheduling service.  This returns <code>null</code> if no
+   * follow-up tasks have been handled.
+   *
+   * @return The average task compression from collapsing follow-up tasks
+   *         handled by the scheduling service, or <code>null</code> if no
+   *         follow-up tasks have been handled.
+   */
+  public Double getAverageFollowUpCompressionRatio() {
+    synchronized (this.getStatisticsMonitor()) {
+      if (this.followUpHandleCount == 0) return null;
+      double completeCount  = (double) this.followUpCompleteCount;
+      double handleCount    = (double) this.followUpHandleCount;
+      return completeCount / handleCount;
+    }
+  }
+
+  /**
+   * Gets the greatest task compression from collapsing follow-up tasks
+   * handled by the scheduling service.  This returns <code>null</code> if
+   * no follow-up tasks have been handled.
+   *
+   * @return The greatest task compression from collapsing follow-up tasks
+   *         handled by the scheduling service, or <code>null</code> if no
+   *         follow-up tasks have been handled.
+   */
+  public Integer getGreatestFollowUpCompressionRatio() {
+    synchronized (this.getStatisticsMonitor()) {
+      if (this.greatestFollowUpMultiplicity <= 0) return null;
+      return this.greatestFollowUpMultiplicity;
+    }
+  }
+
+  /**
+   * Gets the average number of tasks in all the completed task groups.  This
+   * returns <code>null</code> if no task groups have been completed.
+   *
+   * @return The average number of tasks in all the completed task groups, or
+   *         <code>null</code> if no task groups have been completed.
+   */
+  public Double getAverageTaskGroupSize() {
+    synchronized (this.getStatisticsMonitor()) {
+      if (this.taskGroupCount == 0) return null;
+      double completeCount  = (double) this.taskCompleteCount;
+      double groupCount     = (double) this.taskGroupCount;
+      return (completeCount / groupCount);
+    }
+  }
+
+  /**
+   * Gets the dequeue hit ratio.  This returns <code>null</code> if there have
+   * been no attempts to dequeue a task.
+   *
+   * @return The dequeue hit ratio, or <code>null</code> if no attempts have
+   *         been made to dequeue a task.
+   */
+  public Double getDequeueHitRatio() {
+    synchronized (this.getStatisticsMonitor()) {
+      if ((this.dequeueHitCount + this.dequeueMissCount) == 0) {
+        return null;
+      }
+      double hits = (double) this.dequeueHitCount;
+      double misses = (double) this.dequeueMissCount;
+      double total = hits + misses;
+      return (hits / total);
+    }
+  }
+
+  /**
+   * Call this to increment the number of times dequeue has been called with
+   * or without a task ready to be dequeued.  This function is thread-safe
+   * with respect to other statistics.
+   *
+   * @param hit <code>true</code> if we have a "hit" and there is a task ready
+   *            to be dequeued, otherwise <code>false</code> for a "miss".
+   */
+  protected void updateDequeueHitRatio(boolean hit) {
+    synchronized (this.getStatisticsMonitor()) {
+      if (hit) {
+        this.dequeueHitCount++;
+      } else {
+        this.dequeueMissCount++;
+      }
+    }
+  }
+
+  /**
+   *
+   */
+
+  /**
    * The average time in milliseconds that non-follow-up tasks have taken from
-   * scheduling until completion.
+   * scheduling until completion.  This returns <code>null</code> if no
+   * non-follow-up tasks have been handled.
    *
    * @return The average time in milliseconds that non-follow-up tasks have
-   *         taken from scheduling until completion.
+   *         taken from scheduling until completion, or <code>null</code> if
+   *         no non-follow-up tasks have been handled.
    */
-  protected double getAverageTaskTime() {
+  public Double getAverageTaskTime() {
     synchronized (this.getStatisticsMonitor()) {
-      return ((double) this.totalTaskTime) / ((double) this.taskCompleteCount);
+      if (this.taskCompleteCount == 0) return null;
+      double totalTime      = (double) this.totalTaskTime;
+      double completeCount  = (double) this.taskCompleteCount;
+      return totalTime / completeCount;
     }
   }
 
   /**
    * The longest time in milliseconds that a non-follow-up task has taken from
-   * scheduling until completion.
+   * scheduling until completion.  This returns <code>null</code> if no
+   * non-follow-up tasks have been handled.
    *
    * @return The longest time in milliseconds that a non-follow-up task has
-   *         taken from scheduling until completion.
+   *         taken from scheduling until completion, or <code>null</code> if
+   *         no non-follow-up tasks have been handled.
    */
-  protected long getLongestTaskTime() {
+  public Long getLongestTaskTime() {
     synchronized (this.getStatisticsMonitor()) {
+      if (this.longestTaskTime < 0) return null;
       return this.longestTaskTime;
     }
   }
@@ -2169,29 +2647,37 @@ public abstract class AbstractSchedulingService implements SchedulingService {
   /**
    * Gets the average number of milliseconds from all task groups to be
    * handled from the time first task in the group was scheduled until the last
-   * task was completed.
+   * task was completed.  This returns <code>null</code> if no task groups
+   * have been completed.
    *
    * @return The average number of milliseconds from all task groups to be
    *         handled from the time first task in the group was scheduled until
-   *         the last task was completed.
+   *         the last task was completed, or <code>null</code> if no task
+   *         groups have been completed.
    */
-  protected double getAverageTaskGroupTime() {
+  public Double getAverageTaskGroupTime() {
     synchronized (this.getStatisticsMonitor()) {
-      return ((double) this.totalTaskGroupTime)/((double) this.taskGroupCount);
+      if (this.taskGroupCount == 0) return null;
+      double totalTime  = (double) this.totalTaskGroupTime;
+      double groupCount = (double) this.taskGroupCount;
+      return totalTime / groupCount;
     }
   }
 
   /**
    * Gets the greatest number of milliseconds for a task groups to be handled
    * from the time first task in the group was scheduled until the last task
-   * was completed.
+   * was completed.  This returns <code>null</code> if no task groups have been
+   * completed.
    *
    * @return The greatest number of milliseconds for a task groups to be handled
    *         from the time first task in the group was scheduled until the last
-   *         task was completed.
+   *         task was completed, or <code>null</code> if no task groups have
+   *         been completed.
    */
-  protected long getLongestTaskGroupTime() {
+  public Long getLongestTaskGroupTime() {
     synchronized (this.getStatisticsMonitor()) {
+      if (this.longestTaskGroupTime < 0L) return null;
       return this.longestTaskGroupTime;
     }
   }
@@ -2201,7 +2687,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    *
    * @return The number of non-follow-up tasks that have been completed.
    */
-  protected long getCompletedTaskCount() {
+  public long getCompletedTaskCount() {
     synchronized (this.getStatisticsMonitor()) {
       return this.taskCompleteCount;
     }
@@ -2214,7 +2700,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    * @return The number of non-follow-up tasks that have been completed
    *         successfully.
    */
-  protected long getSuccessfulTaskCount() {
+  public long getSuccessfulTaskCount() {
     synchronized (this.getStatisticsMonitor()) {
       return this.taskSuccessCount;
     }
@@ -2227,7 +2713,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    * @return The number of non-follow-up tasks that have been completed
    *         unsuccessfully (i.e.: with failures).
    */
-  protected long getFailedTaskCount() {
+  public long getFailedTaskCount() {
     synchronized (this.getStatisticsMonitor()) {
       return this.taskFailureCount;
     }
@@ -2238,7 +2724,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    *
    * @return The number of non-follow-up tasks that were aborted.
    */
-  protected long getAbortedTaskCount() {
+  public long getAbortedTaskCount() {
     synchronized (this.getStatisticsMonitor()) {
       return this.taskAbortCount;
     }
@@ -2249,7 +2735,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    *
    * @return The number of follow-up tasks that have been completed.
    */
-  protected long getCompletedFollowUpCount() {
+  public long getCompletedFollowUpCount() {
     synchronized (this.getStatisticsMonitor()) {
       return this.followUpCompleteCount;
     }
@@ -2261,7 +2747,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    * @return The number of follow-up tasks that have been completed
    *         successfully.
    */
-  protected long getSuccessfulFollowUpCount() {
+  public long getSuccessfulFollowUpCount() {
     synchronized (this.getStatisticsMonitor()) {
       return this.followUpSuccessCount;
     }
@@ -2274,7 +2760,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    * @return The number of follow-up tasks that have been completed
    *         successfully (i.e.: with failures).
    */
-  protected long getFailedFollowUpCount() {
+  public long getFailedFollowUpCount() {
     synchronized (this.getStatisticsMonitor()) {
       return this.followUpFailureCount;
     }
@@ -2282,30 +2768,33 @@ public abstract class AbstractSchedulingService implements SchedulingService {
 
   /**
    * Get the average number of milliseconds spent calling {@link
-   * TaskHandler#handle(String, Map, int, Scheduler)} for tasks (both follow-up
-   * and non-follow-up).
+   * TaskHandler#handleTask(String, Map, int, Scheduler)} for tasks (both follow-up
+   * and non-follow-up).  If no tasks have been handled then <code>null</code>
+   * is returned.
    *
    * @return The average number of milliseconds spent calling {@link
-   *         TaskHandler#handle(String, Map, int, Scheduler)} for tasks.
+   *         TaskHandler#handleTask(String, Map, int, Scheduler)} for tasks, or
+   *         <code>null</code> if no tasks have been handled.
    */
-  protected double getAverageHandleTaskTime() {
+  public Double getAverageHandleTaskTime() {
     synchronized (this.getStatisticsMonitor()) {
-      double  totalTime       = ((double) this.totalHandlingTime);
-      double  collapsedCount  = ((double) this.handleCount);
-      return totalTime / collapsedCount;
+      if (this.handleCount == 0) return null;
+      double  totalTime = ((double) this.totalHandlingTime);
+      double  callCount = ((double) this.handleCount);
+      return totalTime / callCount;
     }
   }
 
   /**
    * Get the total number of times {@link
-   * TaskHandler#handle(String, Map, int, Scheduler)} has been called to
+   * TaskHandler#handleTask(String, Map, int, Scheduler)} has been called to
    * handle tasks (both follow-up and non-follow-up).
    *
    * @return The total number of times {@link
-   *         TaskHandler#handle(String, Map, int, Scheduler)} has been called
+   *         TaskHandler#handleTask(String, Map, int, Scheduler)} has been called
    *         to handle tasks (both follow-up and non-follow-up).
    */
-  protected long getHandleTaskCount() {
+  public long getHandleTaskCount() {
     synchronized (this.getStatisticsMonitor()) {
       return this.handleCount;
     }
@@ -2313,14 +2802,14 @@ public abstract class AbstractSchedulingService implements SchedulingService {
 
   /**
    * Get the total number of times {@link
-   * TaskHandler#handle(String, Map, int, Scheduler)} has been called to
+   * TaskHandler#handleTask(String, Map, int, Scheduler)} has been called to
    * handle tasks successfully (both follow-up and non-follow-up).
    *
    * @return The total number of times {@link
-   *         TaskHandler#handle(String, Map, int, Scheduler)} has been called
+   *         TaskHandler#handleTask(String, Map, int, Scheduler)} has been called
    *         to handle tasks successfully (both follow-up and non-follow-up).
    */
-  protected long getSuccessfulHandleTaskCount() {
+  public long getSuccessfulHandleTaskCount() {
     synchronized (this.getStatisticsMonitor()) {
       return this.handleSuccessCount;
     }
@@ -2328,14 +2817,14 @@ public abstract class AbstractSchedulingService implements SchedulingService {
 
   /**
    * Get the total number of times {@link
-   * TaskHandler#handle(String, Map, int, Scheduler)} has been called to
+   * TaskHandler#handleTask(String, Map, int, Scheduler)} has been called to
    * handle tasks unsuccessfully (both follow-up and non-follow-up).
    *
    * @return The total number of times {@link
-   *         TaskHandler#handle(String, Map, int, Scheduler)} has been called
+   *         TaskHandler#handleTask(String, Map, int, Scheduler)} has been called
    *         to handle tasks unsuccessfully (both follow-up and non-follow-up).
    */
-  protected long getFailedHandleTaskCount() {
+  public long getFailedHandleTaskCount() {
     synchronized (this.getStatisticsMonitor()) {
       return this.handleFailureCount;
     }
@@ -2343,17 +2832,20 @@ public abstract class AbstractSchedulingService implements SchedulingService {
 
   /**
    * Gets the ratio of the number of times {@link
-   * TaskHandler#handle(String, Map, int, Scheduler)} has been called to handle
+   * TaskHandler#handleTask(String, Map, int, Scheduler)} has been called to handle
    * follow-up tasks to the number of times it has been called to handle
-   * <b>all</b> tasks that have been handled.
+   * <b>all</b> tasks that have been handled.  This returns <code>null</code>
+   * if no tasks have been handled.
    *
    * @return The ratio of the number of times {@link
-   *         TaskHandler#handle(String, Map, int, Scheduler)} has been called
+   *         TaskHandler#handleTask(String, Map, int, Scheduler)} has been called
    *         to handle follow-up tasks to the number of times it has been
-   *         called to handle <b>all</b> tasks that have been handled.
+   *         called to handle <b>all</b> tasks that have been handled, or
+   *         <code>null</code> if no tasks have been handled.
    */
-  protected double getFollowUpHandleTaskRatio() {
+  public Double getFollowUpHandleTaskRatio() {
     synchronized (this.getStatisticsMonitor()) {
+      if (this.handleCount == 0) return null;
       double followUp = ((double) this.followUpHandleCount);
       double all      = ((double) this.handleCount);
       return followUp / all;
@@ -2367,7 +2859,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    * @return The number of {@link TaskGroup} instances that have been folly
    *         handled (whether successful or not).
    */
-  protected long getCompletedTaskGroupCount() {
+  public long getCompletedTaskGroupCount() {
     synchronized (this.getStatisticsMonitor()) {
       return this.taskGroupCount;
     }
@@ -2378,7 +2870,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    *
    * @return The number of task groups that have been successfully completed.
    */
-  protected long getSuccessfulTaskGroupCount() {
+  public long getSuccessfulTaskGroupCount() {
     synchronized (this.getStatisticsMonitor()) {
       return this.groupSuccessCount;
     }
@@ -2389,92 +2881,53 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    *
    * @return The number of task groups that have been completed with failures.
    */
-  protected long getFailedTaskGroupCount() {
+  public long getFailedTaskGroupCount() {
     synchronized (this.getStatisticsMonitor()) {
       return this.groupFailureCount;
     }
   }
 
   /**
-   * Gets the average compression ratio (number of collapsed duplicates, aka:
-   * "multiplicity") per task handling operation for non-follow-up tasks.
+   * The greatest number of tasks in the completed task groups.  This returns
+   * <code>null</code> if no task groups have been completed.
    *
-   * @return The average compression ratio (number of collapsed duplicates,
-   *         aka: "multiplicity") per task handling operation for non-follow-up
-   *         tasks
+   * @return The greatest number of tasks in the completed task groups, or
+   *         <code>null</code> if no task groups have been completed.
    */
-  protected double getAverageCompressionRatio() {
+  public Integer getGreatestTaskGroupSize() {
     synchronized (this.getStatisticsMonitor()) {
-      long completed = this.getCompletedTaskCount();
-      return ((double) completed) / ((double) this.standardHandleCount);
-    }
-  }
-
-  /**
-   * Gets the greatest compression ratio (number of collapsed duplicates, aka:
-   * "multiplicity") for a task handling operation of non-follow-up tasks
-   *
-   * @return The greatest compression ratio (number of collapsed duplicates,
-   *         aka: "multiplicity") for a task handling operation of non-follow-up
-   *         tasks
-   */
-  protected long getGreatestCompressionRatio() {
-    synchronized (this.getStatisticsMonitor()) {
-      return this.greatestMultiplicity;
-    }
-  }
-
-  /**
-   * Gets the average compression ratio (number of collapsed duplicates, aka:
-   * "multiplicity") per task handling operation for follow-up tasks.
-   *
-   * @return The average compression ratio (number of collapsed duplicates,
-   *         aka: "multiplicity") per task handling operation for follow-up
-   *         tasks
-   */
-  protected double getAverageFollowUpCompressionRatio() {
-    synchronized (this.getStatisticsMonitor()) {
-      long completed = this.getCompletedFollowUpCount();
-      return ((double) completed) / ((double) this.followUpHandleCount);
-    }
-  }
-
-  /**
-   * Gets the greatest compression ratio (number of collapsed duplicates, aka:
-   * "multiplicity") for a task handling operation of follow-up tasks
-   *
-   * @return The greatest compression ratio (number of collapsed duplicates,
-   *         aka: "multiplicity") for a task handling operation of follow-up
-   *         tasks
-   */
-  protected long getGreatestFollowUpCompressionRatio() {
-    synchronized (this.getStatisticsMonitor()) {
-      return this.greatestFollowUpMultiplicity;
-    }
-  }
-
-  /**
-   * Gets the average number of tasks in all the completed task groups.
-   *
-   * @return The average number of tasks in all the completed task groups.
-   */
-  protected double getAverageTaskGroupSize() {
-    synchronized (this.getStatisticsMonitor()) {
-      double taskCount  = (double) this.getCompletedTaskCount();
-      double groupCount = (double) this.getCompletedTaskGroupCount();
-      return taskCount / groupCount;
-    }
-  }
-
-  /**
-   * The greatest number of tasks in the completed task groups.
-   *
-   * @return The greatest number of tasks in the completed task groups.
-   */
-  protected int getGreatestGroupSize() {
-    synchronized (this.getStatisticsMonitor()) {
+      if (this.greatestGroupSize <= 0) return null;
       return this.greatestGroupSize;
     }
+  }
+
+  /**
+   * Gets the ratio of the total handling time across all threads to the
+   * total active handling of the task scheduler to indicate the level
+   * of parallelism achieved.  This returns <code>null</code> if no tasks have
+   * yet been handled.
+   *
+   * @return The ratio of the total handling time across all threads to the
+   *         total active handling time of the task scheduler, or
+   *         <code>null</code> if no tasks have been handled.
+   */
+  public Double getParallelism() {
+    synchronized (this.getStatisticsMonitor()) {
+      String timerKey = activelyHandling.toString();
+      Long activeTime = this.timers.getElapsedTime(timerKey);
+      if (activeTime == 0L) return null;
+      Double totalTime  = (double) this.totalHandlingTime;
+      return (totalTime / ((double) activeTime));
+    }
+  }
+
+  /**
+   * Gets the greatest number of tasks that have been postponed.
+   *
+   * @return The greatest number of tasks that have been postponed.
+   */
+  public int getGreatestPostponedCount() {
+    return this.greatestPostponedCount;
   }
 
   /**
@@ -2565,30 +3018,29 @@ public abstract class AbstractSchedulingService implements SchedulingService {
     /**
      * Constructor for deserializing a follow-up task from persistent storage.
      *
-     * @param action The action associated with the follow-up task.
-     * @param parameters The parameters associated with the follow-up task.
-     * @param resourceKeys The resource keys associated with the follow-up task.
+     * @param jsonText The serialized JSON representation of the follow-up task.
      * @param followUpId The optional external persistence ID for the follow-up
      *                   task so it can be later marked complete in and deleted
      *                   from persistent storage.
-     * @param expiration The millisecond UTC time since then epoch when the
-     *                   follow-up task is considered to be "expired".
      * @param multiplicity The collapsed multiplicity from persistent storage,
      *                     which may be one (1) if the follow-up task did not
      *                     allow collapsing with duplicate tasks.
+     * @param expirationTime The millisecond UTC time since then epoch when the
+     *                       follow-up task is considered to be "expired".
+     * @param elapsedMillisSinceCreation The number of milliseconds that have
+     *                                   elapsed since the deserialized task
+     *                                   was originally creasted, or
+     *                                   <code>null</code> if unknown.
      */
-    public ScheduledTask(String                     action,
-                         SortedMap<String, Object>  parameters,
-                         SortedSet<ResourceKey>     resourceKeys,
-                         String                     followUpId,
-                         long                       expiration,
-                         int                        multiplicity)
+    public ScheduledTask(String jsonText,
+                         String followUpId,
+                         int    multiplicity,
+                         long   expirationTime,
+                         long   elapsedMillisSinceCreation)
     {
-      this(new Task(action,
-                    parameters,
-                    resourceKeys,
-                    null,
-                    false));
+      this(Task.deserialize(jsonText,
+                            false,
+                            elapsedMillisSinceCreation));
 
       this.followUp         = true;
       this.followUpId       = followUpId;
@@ -2597,7 +3049,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
 
       // determine the expiration in a consistent manner
       long now              = System.currentTimeMillis();
-      long remainingNanos   = (expiration - now) * ONE_MILLION;
+      long remainingNanos   = (expirationTime - now) * ONE_MILLION;
       this.expirationNanos  = System.nanoTime() + remainingNanos;
     }
 
@@ -2663,7 +3115,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
      *         aborted.
      */
     public synchronized int removeAborted() {
-      if (this.isFollowUp()) return this.getMultiplicity();
+      if (this.isFollowUp()) return 0;
 
       int removedCount = 0;
       Iterator<Task> iter = this.backingTasks.iterator();
@@ -2671,9 +3123,8 @@ public abstract class AbstractSchedulingService implements SchedulingService {
         // get the next task
         Task task = iter.next();
 
-        // get the task group, ensure we have one
+        // get the task group, not a follow-up so we should always have one
         TaskGroup group = task.getTaskGroup();
-        if (group == null) continue;
 
         // check if the group is fast-fail, if not then no abort
         if (!group.isFastFail()) continue;

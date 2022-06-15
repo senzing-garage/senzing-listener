@@ -229,6 +229,12 @@ public class Task {
   private Exception failure = null;
 
   /**
+   * The number of elapsed milliseconds since the task was originally serialized
+   *
+   */
+  private long elapsedMillisSinceSerialization = 0L;
+
+  /**
    * The nanosecond timestamp when this task was created.
    */
   private long createdTimeNanos = -1L;
@@ -284,6 +290,43 @@ public class Task {
   }
 
   /**
+   * Constructs a new {@link Task} with the specified parameters.
+   *
+   * @param action The action for the task.
+   * @param parameters The {@link SortedMap} of parameters for the task.
+   * @param resourceKeys The {@link SortedSet} of {@link ResourceKey} instances
+   *                     for the task.
+   * @param allowCollapse <code>true</code> if collapsing identical tasks of
+   *                      this type is allowed, otherwise <code>false</code>.
+   * @param elapsedMillisSinceSerialization The number of milliseconds that have
+   *                                        elapsed since the deserialized task
+   *                                        was originally created, or
+   *                                        <code>null</code> if unknown.
+   */
+  private Task(String                     action,
+               SortedMap<String, Object>  parameters,
+               SortedSet<ResourceKey>     resourceKeys,
+               boolean                    allowCollapse,
+               Long                       elapsedMillisSinceSerialization)
+  {
+    this.taskId             = getNextTaskId();
+    this.action             = action;
+    this.parameters         = parameters;
+    this.resourceKeys       = resourceKeys;
+    this.taskGroup          = null;
+    this.failure            = null;
+    this.createdTimeNanos   = System.nanoTime();
+    this.scheduledTimeNanos = System.nanoTime();
+    this.allowCollapse      = allowCollapse;
+    if (elapsedMillisSinceSerialization != null) {
+      this.elapsedMillisSinceSerialization = elapsedMillisSinceSerialization;
+      if (this.elapsedMillisSinceSerialization < 0L) {
+        this.elapsedMillisSinceSerialization = 0L;
+      }
+    }
+  }
+
+  /**
    * Returns the statistics for this {@link Task} instance.  The statistics
    * are returned as a {@link Map} of {@link Statistic} keys to {@link Number}
    * values whose units are measured in the associated units for the given the
@@ -314,11 +357,19 @@ public class Task {
    * associated with a {@link TaskGroup}.
    *
    * @param jsonText The JSON text to parse.
-   *
+   * @param allowCollapse <code>true</code> if allowing collapse, otherwise
+   *                      <code>false</code>.
+   * @param elapsedMillisSinceSerialization The number of milliseconds that have
+   *                                        elapsed since the deserialized task
+   *                                        was originally created, or
+   *                                        <code>null</code> if unknown.
    * @return The deserialized {@link Task}.
    */
   @SuppressWarnings("unchecked")
-  static Task parse(String jsonText) {
+  static Task deserialize(String  jsonText,
+                          boolean allowCollapse,
+                          Long    elapsedMillisSinceSerialization)
+  {
     JsonObject jsonObject = parseJsonObject(jsonText);
 
     String action = getString(jsonObject,"action");
@@ -326,8 +377,6 @@ public class Task {
     JsonObject paramsObject = getJsonObject(jsonObject, "params");
 
     JsonArray resourceArray = getJsonArray(jsonObject, "resources");
-
-    boolean allowCollapse = getBoolean(jsonObject, "allowCollapse", true);
 
     // get the parameters map
     SortedMap<String, Object> paramsMap = (paramsObject == null)
@@ -345,7 +394,11 @@ public class Task {
       resourceSet.add(ResourceKey.parse(resourceKey));
     }
 
-    return new Task(action, paramsMap, resourceSet, null, allowCollapse);
+    return new Task(action,
+                    paramsMap,
+                    resourceSet,
+                    allowCollapse,
+                    elapsedMillisSinceSerialization);
   }
 
   /**
@@ -396,7 +449,7 @@ public class Task {
   /**
    * Checks if this task can be collapsed with other collapsible tasks that
    * are identical to it for a single call to {@link
-   * TaskHandler#handle(String, Map, int, Scheduler)} with an incrementally
+   * TaskHandler#handleTask(String, Map, int, Scheduler)} with an incrementally
    * increased multiplicity.
    *
    * @return <code>true</code> if this task can be collpased, otherwise
@@ -722,17 +775,21 @@ public class Task {
    * was scheduled until handling of the task was started.  If the task has not
    * yet been scheduled then negative one (-1) is returned.  If the task has
    * been scheduled, but has not yet been started then the number of
-   * milliseconds since it was scheduled is returned.
+   * milliseconds since it was scheduled is returned.  If the task was a
+   * deserialized follow-up task then this may include the time spent in
+   * persistent storage.
    *
    * @return The duration of the pending time of this task in milliseconds.
    */
   public synchronized long getPendingTime() {
     if (this.scheduledTimeNanos < 0L) return -1L;
+    long result = this.elapsedMillisSinceSerialization;
     if (this.startedTimeNanos < 0L) {
-      return (System.nanoTime() - this.scheduledTimeNanos) / ONE_MILLION;
+      result += (System.nanoTime() - this.scheduledTimeNanos) / ONE_MILLION;
     } else {
-      return (this.startedTimeNanos - this.scheduledTimeNanos) / ONE_MILLION;
+      result += (this.startedTimeNanos - this.scheduledTimeNanos) / ONE_MILLION;
     }
+    return result;
   }
 
   /**
@@ -757,32 +814,39 @@ public class Task {
    * Gets the number of milliseconds from the point in time from when this
    * task was scheduled until the time it was completed either successfully or
    * with failures (or aborted).  If not yet completed then the number of
-   * milliseconds since the task was created is returned.
+   * milliseconds since the task was created is returned.  If the task was a
+   * deserialized follow-up task then this may include the time spent in
+   * persistent storage.
    *
    * @return The duration of the time from scheduling to completion of this
    *         task in milliseconds.
    */
   public synchronized long getRoundTripTime() {
+    long result = this.elapsedMillisSinceSerialization;
     if (this.scheduledTimeNanos < 0L) {
-      return (System.nanoTime() - this.scheduledTimeNanos) / ONE_MILLION;
+      result += (System.nanoTime() - this.scheduledTimeNanos) / ONE_MILLION;
     } else {
-      return (this.completedTimeNanos - this.scheduledTimeNanos) / ONE_MILLION;
+      result += (this.completedTimeNanos - this.scheduledTimeNanos) / ONE_MILLION;
     }
+    return result;
   }
 
   /**
    * Gets the number of milliseconds from the point in time from when this
    * task was created until the time it was completed either successfully or
    * with failures.  If not yet completed then the number of milliseconds since
-   * the task was created is returned.
+   * the task was created is returned.  If the task was a deserialized follow-up
+   * task then this may include the time spent in persistent storage.
    *
    * @return The duration of the lifespan of this task in milliseconds.
    */
   public synchronized long getLifespan() {
+    long result = this.elapsedMillisSinceSerialization;
     if (this.completedTimeNanos < 0L) {
-      return (System.nanoTime() - this.createdTimeNanos) / ONE_MILLION;
+      result += (System.nanoTime() - this.createdTimeNanos) / ONE_MILLION;
     } else {
-      return (this.completedTimeNanos - this.createdTimeNanos) / ONE_MILLION;
+      result += (this.completedTimeNanos - this.createdTimeNanos) / ONE_MILLION;
     }
+    return result;
   }
 }

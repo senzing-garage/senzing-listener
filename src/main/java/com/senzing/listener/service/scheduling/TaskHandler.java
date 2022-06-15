@@ -12,15 +12,6 @@ import java.util.Map;
  */
 public interface TaskHandler {
   /**
-   * Initializes this instance with the configuration described by the specifed
-   * {@link JsonObject}.
-   *
-   * @param config The {@link JsonObject} describing the configuration.
-   * @throws ServiceSetupException If a failure occurs in initialization.
-   */
-  void init(JsonObject config) throws ServiceSetupException;
-
-  /**
    * Called to handle the specified {@link Task} with an optional {@link
    * Scheduler} for scheduling follow-up tasks if that is allowed.
    * Additionally, a multiplicity is specified which, if greater than one (1),
@@ -39,14 +30,9 @@ public interface TaskHandler {
    * @throws ServiceExecutionException If a failure occurred in handling the
    *                                   task.
    */
-  void handle(String              action,
-              Map<String, Object> parameters,
-              int                 multiplicity,
-              Scheduler           followUpScheduler)
+  void handleTask(String              action,
+                  Map<String, Object> parameters,
+                  int                 multiplicity,
+                  Scheduler           followUpScheduler)
     throws ServiceExecutionException;
-
-  /**
-   * Destroys this {@link TaskHandler} and performs any required cleanup.
-   */
-  void destroy();
 }

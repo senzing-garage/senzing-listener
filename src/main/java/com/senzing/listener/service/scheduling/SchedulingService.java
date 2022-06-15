@@ -81,10 +81,12 @@ public interface SchedulingService {
    * Initializes the scheduling service with the specified configuration.
    *
    * @param config The {@link JsonObject} configuration.
+   * @param taskHandler The {@link TaskHandler} to use for handling tasks.
    *
    * @throws ServiceSetupException If a failure occurs.
    */
-  void init(JsonObject config) throws ServiceSetupException;
+  void init(JsonObject config, TaskHandler taskHandler)
+      throws ServiceSetupException;
 
   /**
    * Creates a {@link Scheduler} with a unique {@link TaskGroup} that will

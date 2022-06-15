@@ -1,6 +1,5 @@
 package com.senzing.listener.service;
 
-import com.senzing.listener.communication.exception.MessageConsumerSetupException;
 import com.senzing.listener.service.exception.ServiceSetupException;
 import com.senzing.util.JsonUtilities;
 
@@ -20,7 +19,7 @@ public class ServiceUtilities {
   /**
    * Utility method for obtaining a {@link String} configuration parameter
    * with options to check if missing and required.  This will throw
-   * a {@link MessageConsumerSetupException} if it fails.  Any {@link String}
+   * a {@link ServiceSetupException} if it fails.  Any {@link String}
    * value that is obtained will be trimmed of leading and trailing whitespace
    * and if empty will be returned as <code>null</code>.
    *
@@ -29,8 +28,8 @@ public class ServiceUtilities {
    * @param required <code>true</code> if required, otherwise
    *                 <code>false</code>.
    * @return The {@link String} configuration value.
-   * @throws MessageConsumerSetupException If the parameter value is required
-   *                                       but is missing.
+   * @throws ServiceSetupException If the parameter value is required but is
+   *                               missing.
    */
   public static String getConfigString(JsonObject config,
                                        String     key,
@@ -43,7 +42,7 @@ public class ServiceUtilities {
   /**
    * Utility method for obtaining a {@link String} configuration parameter
    * with options to check if missing and required.  This will throw
-   * a {@link MessageConsumerSetupException} if it fails.  Any {@link String}
+   * a {@link ServiceSetupException} if it fails.  Any {@link String}
    * value that is obtained will be trimmed of leading and trailing whitespace.
    * Resultant empty-string values will optionally be converted to
    * <code>null</code> if the normalization parameter is set to
@@ -88,7 +87,7 @@ public class ServiceUtilities {
   /**
    * Utility method for obtaining a {@link String} configuration parameter
    * with option to return a default value if missing.  This will throw
-   * a {@link MessageConsumerSetupException} if it fails.  Any {@link String}
+   * a {@link ServiceSetupException} if it fails.  Any {@link String}
    * value that is obtained will be trimmed of leading and trailing whitespace
    * and if empty will be returned as <code>null</code>.
    *
@@ -117,7 +116,7 @@ public class ServiceUtilities {
   /**
    * Utility method for obtaining a {@link String} configuration parameter
    * with option to return a default value if missing.  This will throw
-   * a {@link MessageConsumerSetupException} if it fails. Any {@link String}
+   * a {@link ServiceSetupException} if it fails. Any {@link String}
    * value that is obtained will be trimmed of leading and trailing whitespace.
    * Resultant empty-string values will optionally be converted to
    * <code>null</code> if the normalization parameter is set to
@@ -164,7 +163,7 @@ public class ServiceUtilities {
    * Utility method for obtaining an {@link Integer} configuration parameter
    * with options to check if missing and required or if it is less than an
    * optional minimum value.  This will throw {@link
-   * MessageConsumerSetupException} if it fails.
+   * ServiceSetupException} if it fails.
    *
    * @param config The {@link JsonObject} configuration.
    * @param key The configuration parameter key.
