@@ -2,7 +2,6 @@ package com.senzing.listener.service;
 
 import com.senzing.listener.service.exception.ServiceExecutionException;
 import com.senzing.listener.service.exception.ServiceSetupException;
-import com.senzing.listener.service.scheduling.SchedulingService;
 
 import javax.json.JsonObject;
 
@@ -30,7 +29,7 @@ public interface ListenerService extends MessageProcessor {
      * The {@link ListenerService} has completed initialization, and is ready
      * to process messages.
      */
-    READY,
+    AVAILABLE,
 
     /**
      * The {@link ListenerService} has begun destruction, but may still be

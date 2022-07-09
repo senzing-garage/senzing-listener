@@ -1,5 +1,6 @@
 package com.senzing.listener.service;
 
+import com.senzing.listener.communication.MessageConsumer;
 import com.senzing.listener.service.exception.ServiceExecutionException;
 import com.senzing.listener.service.exception.ServiceSetupException;
 import com.senzing.listener.service.model.SzInfoMessage;
@@ -7,10 +8,13 @@ import com.senzing.listener.service.model.SzInterestingEntity;
 import com.senzing.listener.service.model.SzNotice;
 import com.senzing.listener.service.model.SzSampleRecord;
 import com.senzing.listener.service.scheduling.*;
+import com.senzing.util.JsonUtilities;
+import com.senzing.util.LoggingUtilities;
 
 import javax.json.Json;
 import javax.json.JsonArray;
 import javax.json.JsonObject;
+import javax.json.JsonObjectBuilder;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.*;
@@ -61,7 +65,7 @@ public abstract class AbstractListenerService implements ListenerService
    * implementation of the task-scheduling functions, though they can be
    * overridden.
    */
-  protected enum MessagePart {
+  public enum MessagePart {
     /**
      * The record part of the m
      */
@@ -184,6 +188,27 @@ public abstract class AbstractListenerService implements ListenerService
   }
 
   /**
+   * Gets the {@link State} of this instance.
+   *
+   * @return The {@link State} of this instance.
+   */
+  public synchronized State getState() {
+    return this.state;
+  }
+
+  /**
+   * Provides a means to set the {@link State} for this instance as a
+   * synchronized method that will notify all upon changing the state.
+   *
+   * @param state The {@link State} for this instance.
+   */
+  protected synchronized void setState(State state) {
+    Objects.requireNonNull(state,"State cannot be null");
+    this.state = state;
+    this.notifyAll();
+  }
+
+  /**
    * This returns the {@link TaskHandler} that was given to the backing {@link
    * SchedulingService} for handling tasks during initialization.  If this is
    * called prior to initialization then this returns <code>null</code>.
@@ -251,6 +276,7 @@ public abstract class AbstractListenerService implements ListenerService
             "Cannot initialize if not in the " + UNINITIALIZED + " state: "
                 + this.getState());
       }
+      this.setState(INITIALIZING);
     }
 
     try {
@@ -265,14 +291,41 @@ public abstract class AbstractListenerService implements ListenerService
 
         // initialize the scheduling service
         this.schedulingService = this.initSchedulingService(config);
-
       }
+
+      this.setState(AVAILABLE);
+
     } catch (ServiceSetupException e) {
+      this.setState(UNINITIALIZED);
       throw e;
 
     } catch (Exception e) {
+      this.setState(UNINITIALIZED);
       throw new ServiceSetupException(e);
     }
+  }
+
+  /**
+   * Utility method to convert the task being handled to JSON for logging
+   * purposes or for serialization.  The specified {@link Map} of parameters
+   * should have values that can be converted to JSON via {@link
+   * JsonUtilities#toJsonObjectBuilder(Map)}
+   *
+   * @param action The action for the task.
+   * @param parameters The {@link Map} of parameters for the task.
+   * @param multiplicity The multiplicity for the task.
+   *
+   * @return The JSON text describing the task.
+   */
+  protected String taskAsJson(String              action,
+                              Map<String, Object> parameters,
+                              int                 multiplicity)
+  {
+    JsonObjectBuilder job = Json.createObjectBuilder();
+    job.add("action", action);
+    job.add("parameters", toJsonObjectBuilder(parameters));
+    job.add("multiplicity", multiplicity);
+    return toJsonText(job.build());
   }
 
   /**
@@ -290,11 +343,13 @@ public abstract class AbstractListenerService implements ListenerService
    * constructed {@link SchedulingService} instance using the {@link JsonObject}
    * found in the specified configuration via the {@link
    * #SCHEDULING_SERVICE_CONFIG_KEY} JSON property.
+   * #SCHEDULING_SERVICE_CONFIG_KEY} JSON property.
    *
    * @param config The {@link JsonObject} describing the configuration for this
    *               instance of scheduling service.
    *
    * @return The {@link SchedulingService} that was created and initialized.
+   * @throws ServiceSetupException If an initialziation failure occurs.
    */
   protected SchedulingService initSchedulingService(JsonObject config)
     throws ServiceSetupException
@@ -333,6 +388,7 @@ public abstract class AbstractListenerService implements ListenerService
 
     } catch (ServiceSetupException e) {
       throw e;
+
     } catch (Exception e) {
       throw new ServiceSetupException(
           "Failed to initialize SchedulingService for ListenerService", e);
@@ -385,11 +441,19 @@ public abstract class AbstractListenerService implements ListenerService
    * Processes the message described by the specified {@link JsonObject}.
    *
    * @param message The {@link JsonObject} describing the message.
+   *
+   * @throws ServiceExecutionException If a failure occurs.
    */
   @Override
-  public void process(JsonObject message)
-    throws ServiceExecutionException
+  public void process(JsonObject message) throws ServiceExecutionException
   {
+    // check the state
+    if (this.getState() != AVAILABLE) {
+      throw new IllegalStateException(
+          "Cannot process messages when not in the " + AVAILABLE + " state: "
+          + state);
+    }
+
     // get the scheduler
     Scheduler scheduler = this.schedulingService.createScheduler();
 
@@ -442,8 +506,10 @@ public abstract class AbstractListenerService implements ListenerService
    *
    * @param message The {@link JsonObject} for the message.
    * @param scheduler The {@link Scheduler} to use for the tasks.
+   * @throws ServiceExecutionException If a failure occurs.
    */
-  public void scheduleTasks(JsonObject message, Scheduler scheduler)
+  protected void scheduleTasks(JsonObject message, Scheduler scheduler)
+    throws ServiceExecutionException
   {
     SzInfoMessage infoMessage = SzInfoMessage.fromRawJson(message);
 
@@ -463,22 +529,25 @@ public abstract class AbstractListenerService implements ListenerService
     }
 
     // now handle the interesting entities
-    JsonObject jsonObject = getJsonObject(message, "INTERESTING_ENTITIES");
-    jsonArray = getJsonArray(jsonObject, "ENTITIES");
-    Iterator<SzInterestingEntity> iter
-        = infoMessage.getInterestingEntities().iterator();
-    for (JsonObject interesting : jsonArray.getValuesAs(JsonObject.class)) {
-      SzInterestingEntity next = iter.next();
-      this.handleInteresting(
-          next, infoMessage, interesting, message, scheduler);
+    jsonArray = getJsonArray(message, "INTERESTING_ENTITIES");
+    if (jsonArray != null) {
+      Iterator<SzInterestingEntity> iter
+          = infoMessage.getInterestingEntities().iterator();
+      for (JsonObject interesting : jsonArray.getValuesAs(JsonObject.class)) {
+        SzInterestingEntity next = iter.next();
+        this.handleInteresting(
+            next, infoMessage, interesting, message, scheduler);
+      }
     }
 
     // handle the notices
-    jsonArray = getJsonArray(jsonObject, "NOTICES");
-    Iterator<SzNotice> noticeIter = infoMessage.getNotices().iterator();
-    for (JsonObject notice : jsonArray.getValuesAs(JsonObject.class)) {
-      SzNotice next = noticeIter.next();
-      this.handleNotice(next, infoMessage, notice, message, scheduler);
+    jsonArray = getJsonArray(message, "NOTICES");
+    if (jsonArray != null) {
+      Iterator<SzNotice> noticeIter = infoMessage.getNotices().iterator();
+      for (JsonObject notice : jsonArray.getValuesAs(JsonObject.class)) {
+        SzNotice next = noticeIter.next();
+        this.handleNotice(next, infoMessage, notice, message, scheduler);
+      }
     }
   }
 
@@ -662,4 +731,57 @@ public abstract class AbstractListenerService implements ListenerService
         .parameter(DESCRIPTION_PARAMETER_KEY, notice.getDescription())
         .schedule();
   }
+
+  /**
+   * Implemented as a synchronized method to {@linkplain #setState(State)
+   * set the state} to {@link MessageConsumer.State#DESTROYING}, call {@link #doDestroy()} and
+   * then perform {@link #notifyAll()} and set the state to {@link
+   * MessageConsumer.State#DESTROYED}.
+   */
+  public void destroy() {
+    synchronized (this) {
+      State state = this.getState();
+      if (state == DESTROYED) return;
+
+      if (state == DESTROYING) {
+        while (this.getState() != DESTROYED) {
+          try {
+            this.wait(1000L);
+          } catch (InterruptedException e) {
+            // ignore
+          }
+        }
+        // once DESTROYED state is found, just return
+        return;
+      }
+
+      // begin destruction
+      this.setState(DESTROYING);
+    }
+
+    // destroy the scehduling service
+    this.schedulingService.destroy();
+
+    try {
+      // now complete the destruction / cleanup
+      this.doDestroy();
+
+    } finally {
+      this.setState(DESTROYED); // this should notify all as well
+    }
+  }
+
+  /**
+   * Gets the backing {@link SchedulingService} used by this instance.
+   *
+   * @return The backing {@link SchedulingService} used by this instance.
+   */
+  protected SchedulingService getSchedulingService() {
+    return this.schedulingService;
+  }
+  /**
+   * This is called from the {@link #destroy()} implementation and should be
+   * overridden by the concrete sub-class.
+   */
+  protected abstract void doDestroy();
 }

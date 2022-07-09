@@ -23,7 +23,7 @@ public class SzSampleRecord implements Serializable {
 
   /**
    * The JSON property key for deserializing the {@linkplain
-   * #setFlags(Collection<String>) flags property} when parsing raw Senzing
+   * #setFlags(Collection) flags property} when parsing raw Senzing
    * INFO message JSON to construct instances of this class.
    */
   public static final String RAW_FLAGS_KEY = "FLAGS";

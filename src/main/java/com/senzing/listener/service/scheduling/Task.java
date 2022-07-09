@@ -2,6 +2,7 @@ package com.senzing.listener.service.scheduling;
 
 import com.senzing.listener.service.locking.ResourceKey;
 import com.senzing.util.JsonUtilities;
+import com.sun.jdi.request.InvalidRequestStateException;
 
 import javax.json.*;
 import java.io.UnsupportedEncodingException;
@@ -77,10 +78,10 @@ public class Task {
      */
     static {
       UNSCHEDULED.predecessors = Collections.emptySet();
-      UNSCHEDULED.successors   = Set.of(SCHEDULED);
+      UNSCHEDULED.successors   = Set.of(SCHEDULED, ABORTED);
 
       SCHEDULED.predecessors  = Set.of(UNSCHEDULED);
-      SCHEDULED.successors    = Set.of(STARTED);
+      SCHEDULED.successors    = Set.of(STARTED, ABORTED);
 
       STARTED.predecessors    = Set.of(SCHEDULED);
       STARTED.successors      = Set.of(SUCCESSFUL, FAILED);
@@ -463,6 +464,8 @@ public class Task {
    * Checks if this {@link Task} instance has been marked in a state of
    * completion either {@link State#SUCCESSFUL}, {@link State#FAILED} or
    * {@link State#ABORTED}.
+   *
+   * @return <code>true</code> if completed, otherwise <code>false</code>.
    */
   public synchronized boolean isCompleted() {
     return (this.completedTimeNanos >= 0L);
@@ -654,10 +657,12 @@ public class Task {
   }
 
   /**
-   * Converts the specified {@link Task} to a {@link JsonObject} describing the
+   * Converts the specified {@link Task} to JSON text describing the
    * action, parameters and associated resource keys.
    *
    * @param task The {@link Task} to be represented as a {@link JsonObject}.
+   *
+   * @return The JSON text representation of this task as a {@link String}.
    */
   public static String toJsonText(Task task) {
     return JsonUtilities.toJsonText(toJsonObject(task));

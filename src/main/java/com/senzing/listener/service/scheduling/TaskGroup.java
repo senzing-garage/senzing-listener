@@ -223,7 +223,7 @@ public class TaskGroup {
    * Flag indicating if the failure of a single associated task should signal
    * that other associated tasks should be skipped or never handled.
    */
-  private boolean fastFail = false;
+  private boolean fastFail = true;
 
   /**
    * The {@link IdentityHashMap} of tasks to the {@link TaskInfo} instance
@@ -298,7 +298,7 @@ public class TaskGroup {
     this.failureCount     = 0;
     this.scheduledCount   = 0;
     this.startedCount     = 0;
-    this.fastFail         = false;
+    this.fastFail         = true;
     this.createdTimeNanos = System.nanoTime();
     this.state            = OPEN;
   }
@@ -491,10 +491,10 @@ public class TaskGroup {
                   + "gets scheduled: " + state);
         }
       } else {
-        if (state != SCHEDULING) {
+        if (state != SCHEDULING && state != FAILED) {
           throw new IllegalStateException(
-              "TaskGroup must be in a " + SCHEDULING + " state if tasks are "
-                  + "being scheduled: " + state);
+              "TaskGroup must be in a " + SCHEDULING + " or " + FAILED
+                  + " state if tasks are being scheduled: " + state);
         }
       }
 
@@ -563,11 +563,11 @@ public class TaskGroup {
 
       // check the state of the task group
       State state = this.getState();
-      if (state != SCHEDULING && state != SCHEDULED) {
+      if (state != SCHEDULING && state != SCHEDULED && state != FAILED) {
         throw new IllegalStateException(
-            "TaskGroup must be in a " + SCHEDULING + " or " + State.SCHEDULED
-                + " state before its first task can be marked as started: "
-                + state);
+            "TaskGroup must be in a " + SCHEDULING + ", " + State.SCHEDULED
+                + " or " + FAILED + " state when one of its task is being "
+                + "marked as started: " + state);
       }
 
       // check the task state
@@ -633,7 +633,7 @@ public class TaskGroup {
       Task.State lastState = this.taskStateMap.get(task).getTaskState();
 
       // first check the last recorded state
-      if (!taskState.getPredecessors().contains(taskState)) {
+      if (!taskState.getPredecessors().contains(lastState)) {
         throw new IllegalStateException(
             "Task is being marked as successful (" + taskState
                 + ") when previously recorded state (" + lastState
@@ -705,7 +705,7 @@ public class TaskGroup {
       Task.State lastState = this.taskStateMap.get(task).getTaskState();
 
       // first check the last recorded state
-      if (!taskState.getPredecessors().contains(taskState)) {
+      if (!taskState.getPredecessors().contains(lastState)) {
         throw new IllegalStateException(
             "Task is being marked as failed (" + taskState
                 + ") when previously recorded state (" + lastState
@@ -810,12 +810,13 @@ public class TaskGroup {
   private synchronized void checkCompletion() {
     // check if this the first or last completed
     int completedCount  = this.getCompletedCount();
+    int abortedCount    = this.getAbortedCount();
     if (completedCount == 1) {
       this.firstHandledTimeNanos = System.nanoTime();
     }
     // check the failure count and mark as failed if needed
     int failureCount = this.getFailureCount();
-    if (failureCount > 0) {
+    if ((failureCount > 0) && (this.getState() != FAILED)) {
       this.setState(FAILED);
     }
 

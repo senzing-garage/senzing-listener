@@ -58,6 +58,8 @@ public class SzNotice implements Serializable {
 
   /**
    * Constructs with the code and the description.
+   * @param code The code for the notice.
+   * @param description The description for the notice.
    */
   public SzNotice(String code, String description) {
     this.code         = code;

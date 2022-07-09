@@ -29,6 +29,34 @@ public class ProcessScopeLockingService extends AbstractLockingService
   private Map<ResourceKey, LockToken> resourceToLockMap = null;
 
   /**
+   * Dumps the state of the current locks to standard error.
+   *
+   */
+  public synchronized void dumpLocks() {
+    System.err.println();
+    System.err.println("***************************************************");
+    this.locksToResourcesMap.forEach((lockToken, resourceKeys) -> {
+      System.err.println();
+      System.err.println(lockToken);
+      String prefix = "        ";
+      for (ResourceKey key : resourceKeys) {
+        System.err.print(prefix);
+        System.err.print(key);
+        prefix = ", ";
+      }
+    });
+
+    System.err.println();
+    System.err.println("--------------------------------------------------");
+    this.resourceToLockMap.keySet().forEach(resourceKey -> {
+      System.err.println();
+      System.err.println(resourceKey);
+    });
+    System.err.println();
+    System.err.println("***************************************************");
+
+  }
+  /**
    * Implemented to do nothing since no additional initialization is required.
    */
   @Override

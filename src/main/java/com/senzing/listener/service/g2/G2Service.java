@@ -111,11 +111,11 @@ public class G2Service {
    *
    * @throws ServiceExecutionException If a failure occurs.
    */
-  public String getEntity(long g2EntiyId, long flags)
+  public String getEntity(long g2EntityId, long flags)
       throws ServiceExecutionException
   {
     StringBuffer response = new StringBuffer();
-    int result = g2Engine.getEntityByEntityID(g2EntiyId, flags, response);
+    int result = g2Engine.getEntityByEntityID(g2EntityId, flags, response);
 
     if (result != G2ServiceDefinitions.G2_VALID_RESULT) {
       StringBuilder errorMessage

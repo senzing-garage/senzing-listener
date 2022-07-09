@@ -739,6 +739,7 @@ public class TaskBuilder {
    * @param resourceType The type of resource being identified.
    * @param components Zero or more key components that more specifically
    *                   identify the resource.
+   * @return A reference to this instance.
    * @throws IllegalStateException If this instance has already created and
    *                               scheduled a task via {@link #schedule()}.
    * @throws NullPointerException If the resource type is <code>null</code>.
@@ -758,6 +759,7 @@ public class TaskBuilder {
    * @param resourceType The type of resource being identified.
    * @param components Zero or more key components that more specifically
    *                   identify the resource.
+   * @return A reference to this instance.
    * @throws IllegalStateException If this instance has already created and
    *                               scheduled a task via {@link #schedule()}.
    * @throws NullPointerException If the resource type is <code>null</code>.
@@ -1141,6 +1143,7 @@ public class TaskBuilder {
    * Task#isAllowingCollapse() may be collapsed} with other pending identical
    * scheduled tasks.
    *
+   * @return A reference to this instance.
    * @throws IllegalStateException If this instance has already created and
    *                               scheduled a task via {@link #schedule()}.
    */
@@ -1158,6 +1161,7 @@ public class TaskBuilder {
    *                      collapsed with other identical tasks, and
    *                      <code>false</code> if it cannot be collapsed.
    *
+   * @return A reference to this instance.
    * @throws IllegalStateException If this instance has already created and
    *                               scheduled a task via {@link #schedule()}.
    */
@@ -1178,7 +1182,12 @@ public class TaskBuilder {
                          allowCollapse);
 
     // add to the task group
-    taskGroup.addTask(task);
+    if (taskGroup != null) {
+      taskGroup.addTask(task);
+    }
+
+    // add to the scheduler
+    this.scheduler.schedule(task);
 
     // return the scheduler
     Scheduler result = this.scheduler;

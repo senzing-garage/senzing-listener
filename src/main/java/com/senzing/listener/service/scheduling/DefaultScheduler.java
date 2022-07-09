@@ -2,6 +2,7 @@ package com.senzing.listener.service.scheduling;
 
 import com.senzing.listener.service.exception.ServiceExecutionException;
 
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 
@@ -9,7 +10,7 @@ import java.util.Objects;
  * Provides a default implementation of {@link Scheduler} that works with
  * classes that extend {@link AbstractSchedulingService}.
  */
-public class DefaultScheduler implements Scheduler {
+public class DefaultScheduler extends Scheduler {
   /**
    * The underlying {@link AbstractSchedulingService} to schedule the tasks
    * with.
@@ -51,8 +52,9 @@ public class DefaultScheduler implements Scheduler {
   {
     Objects.requireNonNull(
         service, "The SchedulingService cannot be null.");
-    this.service    = service;
-    this.taskGroup  = taskGroup;
+    this.service      = service;
+    this.taskGroup    = taskGroup;
+    this.pendingTasks = new LinkedList<>();
   }
 
   /**
@@ -90,6 +92,19 @@ public class DefaultScheduler implements Scheduler {
    * {@inheritDoc}
    */
   @Override
+  public void schedule(Task task) {
+    if (!Objects.equals(this.getTaskGroup(), task.getTaskGroup())) {
+      throw new IllegalArgumentException(
+          "The specified Task must have a TaskGroup identical to the one "
+              + "associated with this scheduler.");
+    }
+    this.pendingTasks.add(task);
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
   public int getPendingCount() {
     return this.pendingTasks.size();
   }
@@ -99,8 +114,8 @@ public class DefaultScheduler implements Scheduler {
    */
   public int commit() throws ServiceExecutionException {
     if (this.service == null) return 0;
-    if (this.taskGroup == null)  return 0;
-
+    TaskGroup group = this.getTaskGroup();
+    if (group != null) group.close();
     this.service.scheduleTasks(this.pendingTasks);
     int count = this.pendingTasks.size();
     this.pendingTasks.clear();

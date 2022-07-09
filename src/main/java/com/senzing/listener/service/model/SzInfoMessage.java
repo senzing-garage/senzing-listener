@@ -47,7 +47,7 @@ public class SzInfoMessage implements Serializable {
 
   /**
    * The JSON property key for deserializing the {@linkplain
-   * #setAffectedEntities(Collection<Long>) affected entities property} when
+   * #setAffectedEntities(Collection) affected entities property} when
    * parsing raw Senzing INFO message JSON to construct instances of this class.
    */
   public static final String RAW_AFFECTED_ENTITIES_KEY = "AFFECTED_ENTITIES";
@@ -61,7 +61,7 @@ public class SzInfoMessage implements Serializable {
 
   /**
    * The JSON property key for deserializing the {@linkplain
-   * #setInterestingEntities(Collection<SzInterestingEntity>) interesting
+   * #setInterestingEntities(Collection) interesting
    * entities property} when parsing raw Senzing INFO message JSON to construct
    * instances of this class.
    */
@@ -76,7 +76,7 @@ public class SzInfoMessage implements Serializable {
 
   /**
    * The JSON property key for deserializing the {@linkplain
-   * #setNotices(Collection<SzNotice>) notices property} when parsing raw
+   * #setNotices(Collection) notices property} when parsing raw
    * Senzing INFO message JSON to construct instances of this class.
    */
   public static final String RAW_NOTICES_KEY = "NOTICES";
@@ -570,7 +570,8 @@ public class SzInfoMessage implements Serializable {
     List<Long> entityIds = (arr == null) ? null : new ArrayList<>(arr.size());
     if (arr != null) {
       for (int index = 0; index < arr.size(); index++) {
-        entityIds.add(JsonUtilities.getLong(arr, index));
+        JsonObject affectedObj = JsonUtilities.getJsonObject(arr, index);
+        entityIds.add(JsonUtilities.getLong(affectedObj, "ENTITY_ID"));
       }
     }
 

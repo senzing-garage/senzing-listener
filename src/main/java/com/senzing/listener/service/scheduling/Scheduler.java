@@ -6,7 +6,7 @@ import com.senzing.listener.service.exception.ServiceExecutionException;
  * Provides an interface for creating new tasks to be scheduled and
  * scheduling them.
  */
-public interface Scheduler {
+public abstract class Scheduler {
   /**
    * Creates a new {@link TaskBuilder} for creating and scheduling tasks with
    * this instance.
@@ -15,7 +15,7 @@ public interface Scheduler {
    * @return The {@link TaskBuilder} created to create and schedule a task with
    *         this instance.
    */
-  TaskBuilder createTaskBuilder(String action);
+  public abstract TaskBuilder createTaskBuilder(String action);
 
   /**
    * Gets the associated {@link TaskGroup} (if any).  This method returns
@@ -25,7 +25,20 @@ public interface Scheduler {
    * @return The associated {@link TaskGroup}, or <code>null</code> if no
    *         {@link TaskGroup} is associated.
    */
-  TaskGroup getTaskGroup();
+  public abstract TaskGroup getTaskGroup();
+
+  /**
+   * Protected method scheduling a task that has been built.  This method
+   * exists so that {@link TaskBuilder} can call back into the {@link Scheduler}
+   * to actually schedule the task that has been built; however, the public
+   * interface for scheduling tasks is through the {@link TaskBuilder} obtained
+   * from {@link #createTaskBuilder(String)}.  The scheduled {@link Task} gets
+   * added to the list of pending tasks that must be committed before having it
+   * actually get scheduled.
+   *
+   * @param task The {@link Task} to schedule.
+   */
+  protected abstract void schedule(Task task);
 
   /**
    * Gets the number of tasks that have been scheduled that are pending
@@ -35,7 +48,7 @@ public interface Scheduler {
    * @return The number of tasks that have been scheduled that are pending
    *         commit.
    */
-  int getPendingCount();
+  public abstract int getPendingCount();
 
   /**
    * Commits the tasks that have been scheduled to the underlying {@link
@@ -49,5 +62,5 @@ public interface Scheduler {
    * @throws ServiceExecutionException If a failure occurs scheduling the tasks
    *                                   with the {@link SchedulingService}.
    */
-  int commit() throws ServiceExecutionException;
+  public abstract int commit() throws ServiceExecutionException;
 }

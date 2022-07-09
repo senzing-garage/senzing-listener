@@ -46,7 +46,7 @@ public class SzInterestingEntity implements Serializable {
 
   /**
    * The JSON property key for deserializing the {@linkplain
-   * #setFlags(Collection<String>) flags property} when parsing raw Senzing
+   * #setFlags(Collection) flags property} when parsing raw Senzing
    * INFO message JSON to construct instances of this class.
    */
   public static final String RAW_FLAGS_KEY = "FLAGS";
@@ -59,7 +59,7 @@ public class SzInterestingEntity implements Serializable {
 
   /**
    * The JSON property key for deserializing the {@linkplain
-   * #setSampleRecords(Collection<SzSampleRecord>) sample records property} when
+   * #setSampleRecords(Collection) sample records property} when
    * parsing raw Senzing INFO message JSON to construct instances of this class.
    */
   public static final String RAW_SAMPLE_RECORDS_KEY = "SAMPLE_RECORDS";
