@@ -42,49 +42,57 @@ public class PostgreSQLSchedulingService extends AbstractSQLSchedulingService {
         + "created_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,"
         + "modified_on TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP);";
 
-    String dropTableSql = "DROP TABLE IF EXISTS sz_follow_up_tasks";
+    String dropTableSql = "DROP TABLE IF EXISTS sz_follow_up_tasks;";
 
     String createIndexSql1 =
         "CREATE INDEX IF NOT EXISTS sz_task_dup ON sz_follow_up_tasks ("
-            + "signature, allow_collapse_flag, expire_lease_at)";
+            + "signature, allow_collapse_flag, expire_lease_at);";
 
-    String dropIndexSql1 = "DROP INDEX IF EXISTS sz_task_dup";
+    String dropIndexSql1 = "DROP INDEX IF EXISTS sz_task_dup;";
 
     String createIndexSql2 =
         "CREATE INDEX IF NOT EXISTS sz_task_lease ON sz_follow_up_tasks ("
-            + "lease_id)";
+            + "lease_id);";
 
-    String dropIndexSql2 = "DROP INDEX IF EXISTS sz_task_lease";
+    String dropIndexSql2 = "DROP INDEX IF EXISTS sz_task_lease;";
 
     String createTriggerFunctionSql =
-        "CREATE OR REPLACE FUNCTION sz_follow_up_tasks() RETURNS TRIGGER AS "
-            + "$$ "
+        "CREATE OR REPLACE FUNCTION sz_follow_up_timestamps() "
+            + "RETURNS TRIGGER "
+            + "LANGUAGE PLPGSQL "
+            + "AS $$ "
             + "BEGIN "
-            + "IF (TG_OP = 'UPDATE') THEN "
-            + "UPDATE sz_follow_up_tasks SET created_on = OLD.created_on, "
-            + "modified_on = CURRENT_TIMESTAMP WHERE task_id = OLD.task_id; "
+            + "  IF (TG_OP = 'UPDATE') THEN "
+            + "  BEGIN "
+            + "    NEW.created_on := OLD.created_on; "
+            + "    NEW.modified_on := CURRENT_TIMESTAMP; "
+            + "    return NEW; "
+            + "  END; "
             + "ELSIF (TG_OP = 'INSERT') THEN "
-            + "UPDATE sz_follow_up_tasks SET created_on = CURRENT_TIMESTAMP, "
-            + "modified_on = CURRENT_TIMESTAMP WHERE task_id = NEW.task_id; "
+            + "  BEGIN "
+            + "    NEW.created_on := CURRENT_TIMESTAMP; "
+            + "    NEW.modified_on := CURRENT_TIMESTAMP; "
+            + "    return NEW; "
+            + "  END; "
             + "END IF; "
             + "RETURN NULL; "
-            + "END "
-            + "$$ "
-            + "LANGUAGE PLPGSQL;";
+            + "END; "
+            + "$$;";
 
     String createTriggerSql =
         "CREATE OR REPLACE TRIGGER sz_follow_up_tasks_trigger "
-            + "AFTER INSERT OR UPDATE "
-            + "ON sz_follow_up_tasks "
-            + "FOR EACH ROW "
-            + "WHEN (pg_trigger_depth() = 0) "
-            + "EXECUTE PROCEDURE sz_follow_up_tasks();";
+            + "  BEFORE INSERT OR UPDATE "
+            + "  ON sz_follow_up_tasks "
+            + "  FOR EACH ROW "
+            + "  WHEN (pg_trigger_depth() = 0) "
+            + "  EXECUTE PROCEDURE sz_follow_up_timestamps();";
 
     String dropTriggerFunctionSql =
-        "DROP FUNCTION sz_follow_up_tasks;";
+        "DROP FUNCTION IF EXISTS sz_follow_up_timestamps;";
 
     String dropTriggerSql =
-        "DROP TRIGGER sz_follow_up_tasks_trigger ON sz_follow_up_tasks;";
+        "DROP TRIGGER IF EXISTS sz_follow_up_tasks_trigger "
+            + "ON sz_follow_up_timestamps;";
 
     List<String> sqlList = new ArrayList<>();
 

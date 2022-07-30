@@ -1201,9 +1201,13 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    * {@inheritDoc}
    */
   @Override
-  public Scheduler createScheduler() {
-    TaskGroup taskGroup = new TaskGroup();
-    return new DefaultScheduler(this, taskGroup);
+  public Scheduler createScheduler(boolean followUp) {
+    if (followUp) {
+      return new DefaultScheduler(this);
+    } else {
+      TaskGroup taskGroup = new TaskGroup();
+      return new DefaultScheduler(this, taskGroup);
+    }
   }
 
   /**

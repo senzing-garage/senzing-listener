@@ -1,10 +1,8 @@
 package com.senzing.listener.service.scheduling;
 
+import com.senzing.sql.DatabaseType;
+
 import java.sql.*;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 import static com.senzing.sql.SQLUtilities.*;
@@ -15,54 +13,6 @@ import static com.senzing.sql.SQLUtilities.*;
  * AbstractSQLSchedulingService}.
  */
 public class SQLiteSchedulingService extends AbstractSQLSchedulingService {
-  /**
-   * The {@link Calendar} to use for retrieving timestamps from the database.
-   */
-  private static final Calendar UTC_CALENDAR
-      = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
-
-  /**
-   * The date-time pattern used to bind timestamp values as strings.
-   */
-  private static final String DATE_TIME_PATTERN = "yyyy-MM-dd HH:mm:ss.SSS";
-
-  /**
-   * The {@link ZoneId} for UTC time zone.
-   */
-  private static final ZoneId UTC_ZONE = ZoneId.of("UTC");
-
-  /**
-   * The {@link DateTimeFormatter} used to bind timestamp values as strings.
-   */
-  private static final DateTimeFormatter DATE_TIME_FORMATTER
-      = DateTimeFormatter.ofPattern(DATE_TIME_PATTERN);
-
-  /**
-   * {@inheritDoc}
-   *
-   * Overridden to bind as a {@link String} to match {@link
-   * #formatTimestampBinding()}.
-   */
-  @Override
-  protected void setTimestamp(PreparedStatement ps, int index, Timestamp value)
-    throws SQLException
-  {
-    Instant         instant       = Instant.ofEpochMilli(value.getTime());
-    ZonedDateTime   zonedDateTime = instant.atZone(UTC_ZONE);
-
-    ps.setString(index, DATE_TIME_FORMATTER.format(zonedDateTime));
-  }
-
-  /**
-   * {@inheritDoc}
-   *
-   * Overridden to return <code>"(STRFTIME('%Y-%m-%d %H:%M:%f', ?))"</code>.
-   */
-  @Override
-  protected String formatTimestampBinding() {
-    return "(STRFTIME('%Y-%m-%d %H:%M:%f', ?))";
-  }
-
   /**
    * Ensures the schema exists and alternatively drops the existing the schema
    * and recreates it.
@@ -165,5 +115,16 @@ public class SQLiteSchedulingService extends AbstractSQLSchedulingService {
       stmt = close(stmt);
       conn = close(conn);
     }
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * Overridden to return {@link DatabaseType#SQLITE}.
+   *
+   * @return {@link DatabaseType#SQLITE}.
+   */
+  protected DatabaseType initDatabaseType() throws SQLException {
+    return DatabaseType.SQLITE;
   }
 }

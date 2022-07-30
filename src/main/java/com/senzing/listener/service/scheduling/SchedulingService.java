@@ -89,15 +89,43 @@ public interface SchedulingService {
       throws ServiceSetupException;
 
   /**
-   * Creates a {@link Scheduler} with a unique {@link TaskGroup} that will
-   * schedule tasks with this {@link SchedulingService} instance.  If you want
-   * to schedule tasks that are part of different groups you can call this
-   * method multiple times since each returned {@link Scheduler} will have a
-   * different {@link TaskGroup}.
+   * Creates a {@link Scheduler} to schedule standard tasks with
+   * this scheduling service.  The created {@link Scheduler} will create
+   * standard tasks and associate all scheduled tasks with a unique
+   * {@link TaskGroup}.  The {@link TaskGroup} allows the caller to {@linkplain
+   * TaskGroup#awaitCompletion() await completion} of the scheduled tasks. If
+   * you want to schedule tasks that belong to different groups you can call
+   * this method multiple times since each returned {@link Scheduler} will have
+   * a different {@link TaskGroup}.
    *
    * @return A {@link Scheduler} instance that is backed by this instance.
    */
-  Scheduler createScheduler();
+  default Scheduler createScheduler() {
+    return this.createScheduler(false);
+  }
+
+  /**
+   * Creates a {@link Scheduler} to schedule standard <b>or</b> follow-up tasks
+   * with this scheduling service.  If the specified parameter is
+   * <code>false</code> then the created {@link Scheduler} will create standard
+   * tasks and associate all scheduled tasks with a unique {@link TaskGroup}.
+   * The {@link TaskGroup} allows the caller to {@linkplain
+   * TaskGroup#awaitCompletion() await completion} of the scheduled tasks. If
+   * the specified parameter is <code>true</code> then the returned {@link
+   * Scheduler} will schedule <b>follow-up</b> tasks that will eventually be
+   * handled, but there will be no way blocking until those tasks complete.  If
+   * you want to schedule tasks that belong to different groups you can call
+   * this method multiple times with a <code>false</code> as the parameter since
+   * each returned {@link Scheduler} will have a different {@link TaskGroup}.
+   *
+   * @param followUp <code>true</code> if the returned {@link Scheduler} should
+   *                 schedule follow-up tasks, and <code>false</code> if it
+   *                 should schedule standard tasks that belong to a unique
+   *                 {@link TaskGroup}.
+   *
+   * @return A {@link Scheduler} instance that is backed by this instance.
+   */
+  Scheduler createScheduler(boolean followUp);
 
   /**
    * Gets the {@link TaskHandler} for this instance.

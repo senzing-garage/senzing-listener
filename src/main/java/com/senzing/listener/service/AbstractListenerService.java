@@ -67,12 +67,27 @@ public abstract class AbstractListenerService implements ListenerService
    */
   public enum MessagePart {
     /**
-     * The record part of the m
+     * The record part of the message.
      */
     RECORD,
+
+    /**
+     * The part of the message associated with <b>each</b> affected entity
+     * (i.e.: one per affected entity).
+     */
     AFFECTED_ENTITY,
+
+    /**
+     * The part of the message associated with <b>each</b> interesting entity
+     * (i.e.: one per interesting entity).
+     */
     INTERESTING_ENTITY,
-    NOTICE
+
+    /**
+     * The part of the message associated with <b>each</b> notiece (i.e.: one
+     * per notice).
+     */
+    NOTICE;
   }
 
   /**
@@ -293,6 +308,8 @@ public abstract class AbstractListenerService implements ListenerService
         this.schedulingService = this.initSchedulingService(config);
       }
 
+      this.doInit(config);
+
       this.setState(AVAILABLE);
 
     } catch (ServiceSetupException e) {
@@ -333,8 +350,11 @@ public abstract class AbstractListenerService implements ListenerService
    *
    * @param config The {@link JsonObject} describing the initialization
    *               configuration.
+   *
+   * @throws ServiceSetupException If a failure occurs.
    */
-  protected abstract void doInit(JsonObject config);
+  protected abstract void doInit(JsonObject config)
+    throws ServiceSetupException;
 
   /**
    * The default implementation of this method gets the class name from

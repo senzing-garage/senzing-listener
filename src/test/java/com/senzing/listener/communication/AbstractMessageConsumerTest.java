@@ -42,7 +42,7 @@ import static com.senzing.listener.service.scheduling.AbstractSQLSchedulingServi
 @TestInstance(Lifecycle.PER_CLASS)
 @Execution(ExecutionMode.SAME_THREAD)
 public class AbstractMessageConsumerTest {
-  private static final SecureRandom PRNG = new SecureRandom();
+  private static SecureRandom PRNG = new SecureRandom();
   static {
     double value = PRNG.nextDouble();
   }
@@ -1248,7 +1248,19 @@ public class AbstractMessageConsumerTest {
 
       providerName = dbFile.getCanonicalPath();
 
-      Connector connector = new SQLiteConnector(dbFile);
+      boolean usePostgreSQL = Boolean.TRUE.toString().equals(
+          System.getProperty("com.senzing.listener.test.postgresql"));
+
+      Connector connector = null;
+      if (usePostgreSQL) {
+        connector = () -> {
+          String url = "jdbc:postgresql://localhost:5500/test";
+          return DriverManager.getConnection(
+              url, "user", "password");
+        };
+      } else {
+        connector = new SQLiteConnector(dbFile);
+      }
 
       pool = new ConnectionPool(connector, 1);
 
@@ -1259,9 +1271,16 @@ public class AbstractMessageConsumerTest {
       JsonObjectBuilder builder1 = Json.createObjectBuilder();
       JsonObjectBuilder builder2 = Json.createObjectBuilder();
       builder1.add(AbstractSchedulingService.CONCURRENCY_KEY, concurrency);
+      if (usePostgreSQL) {
+        builder1.add(CLEAN_DATABASE_KEY, true);
+      }
       builder1.add(CONNECTION_PROVIDER_KEY, providerName);
       builder2.add(AbstractListenerService.SCHEDULING_SERVICE_CONFIG_KEY,
                    builder1);
+      if (usePostgreSQL) {
+        builder2.add(AbstractListenerService.SCHEDULING_SERVICE_CLASS_KEY,
+                     PostgreSQLSchedulingService.class.getName());
+      }
 
       service.init(builder2.build());
       consumer.init(consumerConfig);

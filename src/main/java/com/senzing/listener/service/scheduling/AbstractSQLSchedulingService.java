@@ -2,6 +2,7 @@ package com.senzing.listener.service.scheduling;
 
 import com.senzing.listener.service.exception.ServiceExecutionException;
 import com.senzing.listener.service.exception.ServiceSetupException;
+import com.senzing.sql.DatabaseType;
 import com.senzing.text.TextUtilities;
 import com.senzing.sql.ConnectionProvider;
 
@@ -16,7 +17,6 @@ import static com.senzing.listener.service.ServiceUtilities.getConfigString;
 import static com.senzing.sql.SQLUtilities.close;
 import static com.senzing.sql.SQLUtilities.rollback;
 import static java.lang.Boolean.FALSE;
-import static java.lang.Boolean.valueOf;
 
 /**
  * Implements {@link SchedulingService} using a SQLite database to handle
@@ -57,6 +57,11 @@ public abstract class AbstractSQLSchedulingService
   private ConnectionProvider connectionProvider;
 
   private Map<String, int[]> callCountMap = new HashMap<>();
+
+  /**
+   * The {@link DatabaseType} for this instance.
+   */
+  private DatabaseType databaseType = null;
 
   /**
    * Gets a JDBC {@link Connection} to use.  Typically these are obtained from
@@ -135,6 +140,9 @@ public abstract class AbstractSQLSchedulingService
             + providerKey);
       }
 
+      // set the database type
+      this.databaseType = this.initDatabaseType();
+
       // ensure the schema exists
       this.ensureSchema(clean);
 
@@ -142,6 +150,31 @@ public abstract class AbstractSQLSchedulingService
       throw new ServiceSetupException(
           "Failed to connect to database or initialize schema.", e);
     }
+  }
+
+  /**
+   * Initializes the {@link DatabaseType} to use for formatting SQL statements.
+   *
+   * @return The {@link DatabaseType} to use.
+   *
+   * @throws SQLException If a failure occurs.
+   */
+  protected DatabaseType initDatabaseType() throws SQLException {
+    Connection conn = this.getConnection();
+    try {
+      return DatabaseType.detect(conn);
+    } finally {
+      conn = close(conn);
+    }
+  }
+
+  /**
+   * Gets the {@link DatabaseType} used by this instance.
+   *
+   * @return The {@link DatabaseType} used by this instance.
+   */
+  public DatabaseType getDatabaseType() {
+    return this.databaseType;
   }
 
   /**
@@ -413,6 +446,8 @@ public abstract class AbstractSQLSchedulingService
     throws SQLException
   {
     {
+      DatabaseType dbType = this.getDatabaseType();
+
       PreparedStatement ps = null;
       try {
         // first release the lease on any task where the lease has expired
@@ -420,14 +455,14 @@ public abstract class AbstractSQLSchedulingService
             "UPDATE sz_follow_up_tasks "
                 + "SET lease_id = NULL, expire_lease_at = NULL "
                 + "WHERE lease_id IS NOT NULL "
-                + "AND expire_lease_at < " + this.formatTimestampBinding());
+                + "AND expire_lease_at < " + dbType.getTimestampBindingSQL());
 
         // don't be too aggressive on expiring leases
         long      now           = System.currentTimeMillis();
         long      leaseExpire   = now - (this.getFollowUpTimeout() / 2);
         Timestamp expireTime    = new Timestamp(leaseExpire);
 
-        this.setTimestamp(ps, 1, expireTime);
+        dbType.setTimestamp(ps, 1, expireTime);
 
         return ps.executeUpdate();
 
@@ -450,6 +485,8 @@ public abstract class AbstractSQLSchedulingService
   protected int leaseFollowUpTasks(Connection conn, int limit, String leaseId)
     throws SQLException
   {
+    DatabaseType dbType = this.getDatabaseType();
+
     PreparedStatement ps = null;
     try {
       // don't be too aggressive on expiring leases
@@ -463,11 +500,11 @@ public abstract class AbstractSQLSchedulingService
       ps = conn.prepareStatement(
           "UPDATE sz_follow_up_tasks "
               + "SET lease_id = ?, "
-              + "expire_lease_at = " + this.formatTimestampBinding() + " "
+              + "expire_lease_at = " + dbType.getTimestampBindingSQL() + " "
               + "WHERE task_id IN (SELECT task_id FROM sz_follow_up_tasks "
               + "WHERE lease_id IS NULL AND expire_lease_at IS NULL "
-              + "AND (modified_on < " + this.formatTimestampBinding() + " "
-              + "OR created_on < " + this.formatTimestampBinding() + ") "
+              + "AND (modified_on < " + dbType.getTimestampBindingSQL() + " "
+              + "OR created_on < " + dbType.getTimestampBindingSQL() + ") "
               + "ORDER BY created_on "
               + "LIMIT ?)");
 
@@ -475,9 +512,9 @@ public abstract class AbstractSQLSchedulingService
       Timestamp expireTime  = new Timestamp(leaseExpire);
 
       ps.setString(1, leaseId);
-      this.setTimestamp(ps,2, expireTime);
-      this.setTimestamp(ps,3, delayTime);
-      this.setTimestamp(ps,4, timeoutTime);
+      dbType.setTimestamp(ps,2, expireTime);
+      dbType.setTimestamp(ps,3, delayTime);
+      dbType.setTimestamp(ps,4, timeoutTime);
       ps.setInt(5, limit);
 
       // execute the update and return the number of affected rows
@@ -632,6 +669,8 @@ public abstract class AbstractSQLSchedulingService
                                       Set<String> leaseIdSet)
     throws SQLException
   {
+    DatabaseType dbType = this.getDatabaseType();
+
     PreparedStatement ps = null;
     try {
       int count = leaseIdSet.size();
@@ -639,7 +678,7 @@ public abstract class AbstractSQLSchedulingService
       // build the SQL
       StringBuilder sb = new StringBuilder(
           "UPDATE sz_follow_up_tasks "
-              + "SET expire_lease_at = " + this.formatTimestampBinding() + " "
+              + "SET expire_lease_at = " + dbType.getTimestampBindingSQL() + " "
               + "WHERE lease_id IN (");
       String prefix = "";
       for (int index = 0; index < count; index++) {
@@ -652,7 +691,7 @@ public abstract class AbstractSQLSchedulingService
       ps = conn.prepareStatement(sb.toString());
 
       // bind the timestamp for the new expire time
-      this.setTimestamp(ps, 1, expireTime);
+      dbType.setTimestamp(ps, 1, expireTime);
 
       // bind the lease ID's
       int index = 2;
@@ -755,38 +794,5 @@ public abstract class AbstractSQLSchedulingService
     synchronized (this.getStatisticsMonitor()) {
       return this.totalExpiredFollowUpTaskCount;
     }
-  }
-
-  /**
-   * Utility method to aid with SQLite implementations due to the poor handling
-   * of timestamps in SQLite.  By default this returns <code>"?"</code> for
-   * binding a JDBC {@link Timestamp}, but it can be overridden for the likes
-   * of SQLite to return <code>(STRFTIME('%Y-%m-%d %H:%M:%f', ?))</code>.
-   *
-   * @return The text used for building {@link PreparedStatement} instances
-   *         that provide bindings for timestmap values.
-   *
-   * @see #setTimestamp(PreparedStatement,int,Timestamp)
-   */
-  protected String formatTimestampBinding() {
-    return "?";
-  }
-
-  /**
-   * Utility method to aid with SQLite implementations due to the poor handling
-   * of timestamps in SQLite.  By default this simply calls {@link
-   * PreparedStatement#setTimestamp(int, Timestamp, Calendar)} but can be
-   * overridden to bind a {@link String} instead if formatting timestamps
-   * as text.
-   *
-   * @param ps The {@link PreparedStatement} to bind to.
-   * @param index The parameter index.
-   * @param value The {@link Timestamp} value to bind.
-   * @throws SQLException If a JDBC failure occurs.
-   */
-  protected void setTimestamp(PreparedStatement ps, int index, Timestamp value)
-    throws SQLException
-  {
-    ps.setTimestamp(index, value, UTC_CALENDAR);
   }
 }
