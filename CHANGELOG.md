@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] - 2022-08-26
+
+### Changed in 0.1.0
+
+- In `Dockerfile`, bump from `senzing/senzingapi-runtime:3.1.0` to `senzing/senzingapi-runtime:3.2.0`
+
 ## [0.0.4] - 2021-10-20
 
 ### Changed in 0.0.4
@@ -25,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Prep for central repo
 - Added Javadoc
-- Refactored constants for initialization parameters to make them specific to 
+- Refactored constants for initialization parameters to make them specific to
   the messaging vendor
 - Removed some unused classes
 - Changed `cleanUp()` functions to `destroy()`
