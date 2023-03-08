@@ -46,7 +46,6 @@ public class G2Service {
    * @throws ServiceSetupException If a failure occurs.
    */
   public void init(String iniFile) throws ServiceSetupException {
-    boolean verboseLogging = false;
 
     String configData = null;
     try {
@@ -54,8 +53,21 @@ public class G2Service {
     } catch (IOException | RuntimeException e) {
       throw new ServiceSetupException(e);
     }
+    initWithG2Config(configData);
+  }
+
+  /**
+   * Initializes the service. The configuration information is passed in as a json string.
+   *
+   * @param g2Config configuration as a json string.
+   *
+   * @throws ServiceSetupException If a failure occurs.
+   */
+  public void initWithG2Config(String g2Config) throws ServiceSetupException {
+    boolean verboseLogging = false;
+
     g2Engine = new G2JNI();
-    int result = g2Engine.init(moduleName, configData, verboseLogging);
+    int result = g2Engine.init(moduleName, g2Config, verboseLogging);
     if (result != G2ServiceDefinitions.G2_VALID_RESULT) {
       StringBuilder errorMessage = new StringBuilder("G2 engine failed to initalize with error: ");
       errorMessage.append(g2ErrorMessage(g2Engine));
