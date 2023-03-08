@@ -9,7 +9,6 @@ import com.senzing.listener.service.model.SzNotice;
 import com.senzing.listener.service.model.SzSampleRecord;
 import com.senzing.listener.service.scheduling.*;
 import com.senzing.util.JsonUtilities;
-import com.senzing.util.LoggingUtilities;
 
 import javax.json.Json;
 import javax.json.JsonArray;
@@ -22,6 +21,8 @@ import java.util.*;
 import static com.senzing.util.JsonUtilities.*;
 import static com.senzing.listener.service.ListenerService.State.*;
 import static com.senzing.listener.service.ServiceUtilities.*;
+import static com.senzing.listener.service.model.SzInfoMessage.*;
+import static java.lang.Boolean.*;
 
 /**
  * Provides a base class for {@link ListenerService} implementations.
@@ -153,12 +154,25 @@ public abstract class AbstractListenerService implements ListenerService
     }
 
     /**
+     * Overridden to call {@link AbstractListenerService#waitUntilReady(long)}
+     * on the parent object.
+     * <p>
+     * {@inheritDoc}
+     */
+    @Override
+    public Boolean waitUntilReady(long timeoutMillis)
+      throws InterruptedException {
+      return AbstractListenerService.this.waitUntilReady(timeoutMillis);
+    }
+
+    /**
      * Overridden to call {@link
      * AbstractListenerService#handleTask(String, Map, int, Scheduler)} on the
      * parent object.
      * <p>
      * {@inheritDoc}
      */
+    @Override
     public void handleTask(String               action,
                            Map<String, Object>  parameters,
                            int                  multiplicity,
@@ -212,6 +226,14 @@ public abstract class AbstractListenerService implements ListenerService
   }
 
   /**
+   *
+   */
+  @Override
+  public synchronized Map<Statistic, Number> getStatistics() {
+      return this.schedulingService.getStatistics();
+  }
+
+  /**
    * Provides a means to set the {@link State} for this instance as a
    * synchronized method that will notify all upon changing the state.
    *
@@ -251,6 +273,43 @@ public abstract class AbstractListenerService implements ListenerService
     throws ServiceExecutionException
   {
     return new ListenerTaskHandler();
+  }
+
+  /**
+   * Checks if this instance is ready to handle tasks and waits for
+   * it to be ready for the specified maximum number of milliseconds.  Specify
+   * a negative number of milliseconds to wait indefinitely or zero (0) to
+   * simply check if ready with no waiting.  This is used so the {@link
+   * SchedulingService} can delay handling tasks until ready.
+   *
+   * @param timeoutMillis The maximum number of milliseconds to wait for this
+   *                      task handler to become ready, a negative number to
+   *                      wait indefinitely, or zero (0) to simply poll without
+   *                      waiting.
+   *
+   * @return {@link Boolean#TRUE} if ready to handle tasks, {@link
+   *         Boolean#FALSE} if not yet ready, and <code>null</code> if due to
+   *         some failure we will never be ready to handle tasks.
+   *
+   * @throws InterruptedException If interrupted while waiting.
+   */
+  protected synchronized Boolean waitUntilReady(long timeoutMillis)
+      throws InterruptedException
+  {
+    switch (this.getState()) {
+      case AVAILABLE:
+        return Boolean.TRUE;
+      case DESTROYING:
+      case DESTROYED:
+        return null;
+      default:
+        if (timeoutMillis < 0L) {
+          this.wait();
+        } else if (timeoutMillis > 0L) {
+          this.wait(timeoutMillis);
+        }
+        return (this.getState() == State.AVAILABLE) ? TRUE : FALSE;
+    }
   }
 
   /**
@@ -467,56 +526,64 @@ public abstract class AbstractListenerService implements ListenerService
   @Override
   public void process(JsonObject message) throws ServiceExecutionException
   {
-    // check the state
-    if (this.getState() != AVAILABLE) {
-      throw new IllegalStateException(
-          "Cannot process messages when not in the " + AVAILABLE + " state: "
-          + state);
-    }
+    try {
+      // check the state
+      if (this.getState() != AVAILABLE) {
+        throw new IllegalStateException(
+            "Cannot process messages when not in the " + AVAILABLE + " state: "
+                + state);
+      }
 
-    // get the scheduler
-    Scheduler scheduler = this.schedulingService.createScheduler();
+      // get the scheduler
+      Scheduler scheduler = this.schedulingService.createScheduler();
 
-    // get the task group
-    TaskGroup taskGroup = scheduler.getTaskGroup();
-    if (taskGroup == null) {
-      throw new IllegalStateException("The TaskGroup should not be null");
-    }
+      // get the task group
+      TaskGroup taskGroup = scheduler.getTaskGroup();
+      if (taskGroup == null) {
+        throw new IllegalStateException("The TaskGroup should not be null");
+      }
 
-    // schedule the tasks
-    this.scheduleTasks(message, scheduler);
+      // schedule the tasks
+      this.scheduleTasks(message, scheduler);
 
-    // commit the scheduler tasks
-    scheduler.commit();
+      // commit the scheduler tasks
+      scheduler.commit();
 
-    // wait for the tasks to be completed
-    taskGroup.awaitCompletion();
+      // wait for the tasks to be completed
+      taskGroup.awaitCompletion();
 
-    // determine the state of the group
-    TaskGroup.State groupState = taskGroup.getState();
-    if (groupState == TaskGroup.State.SUCCESSFUL) return;
+      // determine the state of the group
+      TaskGroup.State groupState = taskGroup.getState();
+      if (groupState == TaskGroup.State.SUCCESSFUL) return;
 
-    // if we get here then we had a failure
-    List<Task> failedTasks = taskGroup.getFailedTasks();
-    if (failedTasks.size() == 1) {
-      Exception failure = failedTasks.get(0).getFailure();
-      if (failure instanceof ServiceExecutionException) {
-        throw ((ServiceExecutionException) failure);
+      // if we get here then we had a failure
+      List<Task> failedTasks = taskGroup.getFailedTasks();
+      if (failedTasks.size() == 1) {
+        Exception failure = failedTasks.get(0).getFailure();
+        if (failure instanceof ServiceExecutionException) {
+          throw ((ServiceExecutionException) failure);
+        } else {
+          throw new ServiceExecutionException(failure);
+        }
       } else {
-        throw new ServiceExecutionException(failure);
-      }
-    } else {
-      StringWriter  sw = new StringWriter();
-      PrintWriter   pw = new PrintWriter(sw);
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
 
-      for (Task failedTask : failedTasks) {
-        Exception failure = failedTask.getFailure();
-        pw.println("----------------------------------------");
-        pw.println(failedTask);
-        failure.printStackTrace(pw);
-        pw.println();
+        for (Task failedTask : failedTasks) {
+          Exception failure = failedTask.getFailure();
+          pw.println("----------------------------------------");
+          pw.println(failedTask);
+          failure.printStackTrace(pw);
+          pw.println();
+        }
+        throw new ServiceExecutionException(pw.toString());
       }
-      throw new ServiceExecutionException(pw.toString());
+    } catch (ServiceExecutionException e) {
+      throw e;
+
+    } catch (RuntimeException e) {
+      e.printStackTrace();
+      throw new ServiceExecutionException(e);
     }
   }
 
@@ -534,39 +601,42 @@ public abstract class AbstractListenerService implements ListenerService
     SzInfoMessage infoMessage = SzInfoMessage.fromRawJson(message);
 
     // handle the record first
-    String dataSource = getString(message, "DATA_SOURCE");
-    String recordId = getString(message, "RECORD_ID");
+    String dataSource = getString(message, RAW_DATA_SOURCE_KEY);
+    String recordId = getString(message, RAW_RECORD_ID_KEY);
     this.handleRecord(dataSource, recordId, infoMessage, message, scheduler);
 
     // now handle the affected entities
-    JsonArray jsonArray = getJsonArray(message, "AFFECTED_ENTITIES");
+    JsonArray jsonArray = getJsonArray(message, RAW_AFFECTED_ENTITIES_KEY);
     if (jsonArray != null) {
       for (JsonObject affected : jsonArray.getValuesAs(JsonObject.class)) {
-        Long entityId = getLong(affected, "ENTITY_ID");
+        Long entityId = getLong(affected, RAW_ENTITY_ID_KEY);
         this.handleAffected(
             entityId, infoMessage, affected, message, scheduler);
       }
     }
 
     // now handle the interesting entities
-    jsonArray = getJsonArray(message, "INTERESTING_ENTITIES");
-    if (jsonArray != null) {
-      Iterator<SzInterestingEntity> iter
-          = infoMessage.getInterestingEntities().iterator();
-      for (JsonObject interesting : jsonArray.getValuesAs(JsonObject.class)) {
-        SzInterestingEntity next = iter.next();
-        this.handleInteresting(
-            next, infoMessage, interesting, message, scheduler);
+    JsonObject jsonObj = getJsonObject(message, RAW_INTERESTING_ENTITIES_KEY);
+    if (jsonObj != null) {
+      jsonArray = getJsonArray(jsonObj, RAW_ENTITIES_KEY);
+      if (jsonArray != null) {
+        Iterator<SzInterestingEntity> iter
+            = infoMessage.getInterestingEntities().iterator();
+        for (JsonObject interesting : jsonArray.getValuesAs(JsonObject.class)) {
+          SzInterestingEntity next = iter.next();
+          this.handleInteresting(
+              next, infoMessage, interesting, message, scheduler);
+        }
       }
-    }
 
-    // handle the notices
-    jsonArray = getJsonArray(message, "NOTICES");
-    if (jsonArray != null) {
-      Iterator<SzNotice> noticeIter = infoMessage.getNotices().iterator();
-      for (JsonObject notice : jsonArray.getValuesAs(JsonObject.class)) {
-        SzNotice next = noticeIter.next();
-        this.handleNotice(next, infoMessage, notice, message, scheduler);
+      // handle the notices
+      jsonArray = getJsonArray(message, "NOTICES");
+      if (jsonArray != null) {
+        Iterator<SzNotice> noticeIter = infoMessage.getNotices().iterator();
+        for (JsonObject notice : jsonArray.getValuesAs(JsonObject.class)) {
+          SzNotice next = noticeIter.next();
+          this.handleNotice(next, infoMessage, notice, message, scheduler);
+        }
       }
     }
   }

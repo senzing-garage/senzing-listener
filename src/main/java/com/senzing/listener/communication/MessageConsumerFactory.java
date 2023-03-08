@@ -4,6 +4,8 @@ import com.senzing.listener.communication.exception.MessageConsumerSetupExceptio
 import com.senzing.listener.communication.rabbitmq.RabbitMQConsumer;
 import com.senzing.listener.communication.sqs.SQSConsumer;
 
+import javax.json.JsonObject;
+
 /**
  * A factory class for creating instances of {@link MessageConsumer}.
  */
@@ -13,15 +15,16 @@ public class MessageConsumerFactory {
    * 
    * @param consumerType The consumer type.
    *
-   * @param config The configuration string for the {@link MessageConsumer}.
+   * @param config The {@link JsonObject} descrbing the configuration for the
+   *               {@link MessageConsumer}.
    *
    * @return The {@link MessageConsumer} that was created.
    * 
    * @throws MessageConsumerSetupException If a failure occurs.
    */
   public static MessageConsumer generateMessageConsumer(
-      ConsumerType consumerType,
-      String config)
+      ConsumerType  consumerType,
+      JsonObject    config)
       throws MessageConsumerSetupException
   {
     MessageConsumer consumer = null;

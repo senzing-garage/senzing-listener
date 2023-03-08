@@ -16,9 +16,7 @@ import javax.json.*;
 import javax.naming.NamingException;
 import java.io.*;
 import java.security.SecureRandom;
-import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.Statement;
 import java.util.*;
 
 import org.junit.jupiter.api.TestInstance;
@@ -1238,7 +1236,7 @@ public class AbstractMessageConsumerTest {
     if (concurrency != null) {
       job.add(CONCURRENCY_KEY, concurrency * 8);
     }
-    String consumerConfig = toJsonText(job);
+    JsonObject consumerConfig = job.build();
 
     AccessToken token = null;
     String providerName = null;
@@ -1307,12 +1305,12 @@ public class AbstractMessageConsumerTest {
       // do nothing
     }
     consumer.destroy();
-    //Map<Statistic, Number> stats = printStatistics(consumer, service);
+    //Map<Stat, Number> stats = printStatistics(consumer, service);
     Map<Statistic, Number> stats = consumer.getStatistics();
 
-    Number messageRetryCount = stats.get(Statistic.messageRetryCount);
-    Number processRetryCount = stats.get(Statistic.processRetryCount);
-    Number statsFailureCount = stats.get(Statistic.processFailureCount);
+    Number messageRetryCount = stats.get(Stat.messageRetryCount);
+    Number processRetryCount = stats.get(Stat.processRetryCount);
+    Number statsFailureCount = stats.get(Stat.processFailureCount);
 
     if (failureRate == 0.0) {
       assertEquals(consumer.getExpectedFailureCount(), statsFailureCount,
@@ -1449,7 +1447,7 @@ public class AbstractMessageConsumerTest {
     System.err.println("-----------------------------------------------------");
     AbstractSchedulingService schedulingService
         = (AbstractSchedulingService) service.getSchedulingService();
-    Map<AbstractSchedulingService.Statistic, Number> stats2
+    Map<Statistic, Number> stats2
         = schedulingService.getStatistics();
     System.err.println("SCHEDULING STATISTICS:");
     stats2.forEach((key, value) -> {

@@ -46,6 +46,18 @@ public class SzInfoMessage implements Serializable {
   public static final String AFFECTED_ENTITIES_KEY = "affectedEntities";
 
   /**
+   * The JSON property key for serializing and deserializing the entity ID
+   * properties for instances of this class.
+   */
+  public static final String ENTITY_ID_KEY = "entityId";
+
+  /**
+   * The JSON property key for deserializing an entity ID when parsing raw
+   * Senzing INFO message JSON to construct instances of this class.
+   */
+  public static final String RAW_ENTITY_ID_KEY = "ENTITY_ID";
+
+  /**
    * The JSON property key for deserializing the {@linkplain
    * #setAffectedEntities(Collection) affected entities property} when
    * parsing raw Senzing INFO message JSON to construct instances of this class.
@@ -67,6 +79,20 @@ public class SzInfoMessage implements Serializable {
    */
   public static final String RAW_INTERESTING_ENTITIES_KEY
       = "INTERESTING_ENTITIES";
+
+  /**
+   * The JSON property key for serializing and deserializing the entities
+   * from the {@linkplain #getInterestingEntities() interesting entities
+   * property} for instances of this class.
+   */
+  public static final String ENTITIES_KEY = "entities";
+
+  /**
+   * The JSON property key for serializing and deserializing the entities
+   * from the {@linkplain #getInterestingEntities() interesting entities
+   * property} for instances of this class.
+   */
+  public static final String RAW_ENTITIES_KEY = "ENTITIES";
 
   /**
    * The JSON property key for serializing and deserializing the {@linkplain
@@ -351,19 +377,24 @@ public class SzInfoMessage implements Serializable {
     }
     builder.add(AFFECTED_ENTITIES_KEY, jab);
 
+    JsonObjectBuilder job = Json.createObjectBuilder();
     // add the interesting entities array
     jab = Json.createArrayBuilder();
     for (SzInterestingEntity entity : this.getInterestingEntities()) {
       jab.add(entity.toJsonObjectBuilder());
     }
-    builder.add(INTERESTING_ENTITIES_KEY, jab);
+    job.add(ENTITIES_KEY, jab);
 
     // add the notices array
-    jab = Json.createArrayBuilder();
-    for (SzNotice notice : this.getNotices()) {
-      jab.add(notice.toJsonObjectBuilder());
+    if (this.getNotices().size() > 0) {
+      jab = Json.createArrayBuilder();
+      for (SzNotice notice : this.getNotices()) {
+        jab.add(notice.toJsonObjectBuilder());
+      }
+      job.add(NOTICES_KEY, jab);
     }
-    builder.add(NOTICES_KEY, jab);
+
+    builder.add(INTERESTING_ENTITIES_KEY, job);
 
     // return the builder
     return builder;
@@ -465,6 +496,7 @@ public class SzInfoMessage implements Serializable {
                     RECORD_ID_KEY,
                     AFFECTED_ENTITIES_KEY,
                     INTERESTING_ENTITIES_KEY,
+                    ENTITIES_KEY,
                     NOTICES_KEY);
   }
 
@@ -514,6 +546,7 @@ public class SzInfoMessage implements Serializable {
                     RAW_RECORD_ID_KEY,
                     RAW_AFFECTED_ENTITIES_KEY,
                     RAW_INTERESTING_ENTITIES_KEY,
+                    RAW_ENTITIES_KEY,
                     RAW_NOTICES_KEY);
   }
 
@@ -533,6 +566,8 @@ public class SzInfoMessage implements Serializable {
    * @param interestingEntitiesKey The JSON property key for the interesting
    *                               entities property.
    *
+   * @param entitiesKey The JSON property key for the entities property.
+   *
    * @param noticesKey The JSON property key for the notices property.
    *
    * @return The created {@link SzInfoMessage} instance, or <code>null</code>
@@ -547,6 +582,7 @@ public class SzInfoMessage implements Serializable {
                                         String      recordIdKey,
                                         String      affectedEntitiesKey,
                                         String      interestingEntitiesKey,
+                                        String      entitiesKey,
                                         String      noticesKey)
       throws IllegalArgumentException
   {
@@ -571,26 +607,33 @@ public class SzInfoMessage implements Serializable {
     if (arr != null) {
       for (int index = 0; index < arr.size(); index++) {
         JsonObject affectedObj = JsonUtilities.getJsonObject(arr, index);
-        entityIds.add(JsonUtilities.getLong(affectedObj, "ENTITY_ID"));
+        entityIds.add(JsonUtilities.getLong(affectedObj, RAW_ENTITY_ID_KEY));
       }
     }
 
     // parse the interesting entities
-    arr = JsonUtilities.getJsonArray(jsonObject, interestingEntitiesKey);
-    List<SzInterestingEntity> entities
-        = (arr == null) ? null : new ArrayList<>(arr.size());
-    if (arr != null) {
-      for (JsonObject obj : arr.getValuesAs(JsonObject.class)) {
-        entities.add(SzInterestingEntity.fromJson(obj));
-      }
-    }
+    JsonObject object = JsonUtilities.getJsonObject(jsonObject,
+                                                    interestingEntitiesKey);
+    List<SzInterestingEntity> entities  = null;
+    List<SzNotice>            notices   = null;
 
-    // parse the notices
-    arr = JsonUtilities.getJsonArray(jsonObject, noticesKey);
-    List<SzNotice> notices = (arr == null) ? null : new ArrayList<>(arr.size());
-    if (arr != null) {
-      for (JsonObject obj: arr.getValuesAs(JsonObject.class)) {
-        notices.add(SzNotice.fromJson(obj));
+    if (object != null) {
+      arr = JsonUtilities.getJsonArray(object, entitiesKey);
+      entities = (arr == null) ? null : new ArrayList<>(arr.size());
+      if (arr != null) {
+        for (JsonObject obj : arr.getValuesAs(JsonObject.class)) {
+          entities.add(SzInterestingEntity.fromJson(obj));
+        }
+      }
+
+      // parse the notices
+      arr = JsonUtilities.getJsonArray(object, noticesKey);
+      notices = (arr == null) ? null : new ArrayList<>(arr.size());
+
+      if (arr != null) {
+        for (JsonObject obj : arr.getValuesAs(JsonObject.class)) {
+          notices.add(SzNotice.fromJson(obj));
+        }
       }
     }
 

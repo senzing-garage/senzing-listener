@@ -2,6 +2,7 @@ package com.senzing.listener.service;
 
 import com.senzing.listener.service.exception.ServiceExecutionException;
 import com.senzing.listener.service.exception.ServiceSetupException;
+import com.senzing.util.Quantified;
 
 import javax.json.JsonObject;
 
@@ -9,7 +10,7 @@ import javax.json.JsonObject;
  * Defines an interface for a {@link ListenerService} that can process
  * messages that are received.
  */
-public interface ListenerService extends MessageProcessor {
+public interface ListenerService extends MessageProcessor, Quantified {
   /**
    * Enumerates the states of a {@link ListenerService}.
    */

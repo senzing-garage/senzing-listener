@@ -2,6 +2,7 @@ package com.senzing.listener.service.scheduling;
 
 import com.senzing.listener.service.exception.ServiceSetupException;
 import com.senzing.listener.service.locking.LockingService;
+import com.senzing.util.Quantified;
 
 import javax.json.JsonObject;
 
@@ -10,7 +11,7 @@ import javax.json.JsonObject;
  * those tasks, and then executing those tasks when once the resources have
  * been locked.
  */
-public interface SchedulingService {
+public interface SchedulingService extends Quantified {
   /**
    * Enumerates the states of a {@link SchedulingService}.
    */

@@ -100,7 +100,7 @@ public abstract class AbstractSQLSchedulingService
    *
    */
   @Override
-  public Map<Statistic,Number> getStatistics() {
+  public Map<Statistic, Number> getStatistics() {
     synchronized (this.callCountMap) {
       System.err.println();
       System.err.println("==================================================");

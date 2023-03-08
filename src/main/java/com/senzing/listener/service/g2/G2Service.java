@@ -2,7 +2,6 @@ package com.senzing.listener.service.g2;
 
 import java.io.File;
 import java.io.IOException;
-import java.security.Provider;
 import java.util.*;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -1006,12 +1005,16 @@ public class G2Service {
     }
 
     // check if not found
-    if (result == ENTITY_NOT_FOUND_CODE) {
-      return null;
-    }
-
-    // check for an error and throw as an exception
     if (result != 0) {
+      // get the error code
+      int code = this.engineApi.getLastExceptionCode();
+
+      // check if not found
+      if (code == ENTITY_NOT_FOUND_CODE) {
+        return null;
+      }
+
+      // throw an exception otherwise
       String errorMsg = "G2Engine failed to retrieve an entity with error: "
           + formatError("G2Engine.getEntityByEntityID", this.engineApi);
       System.err.println(errorMsg);
@@ -1084,14 +1087,17 @@ public class G2Service {
           dataSource, recordID, flags, sb);
     }
 
-    // check if the record was not found
-    if (result == DATA_SOURCE_NOT_FOUND_CODE || result == RECORD_NOT_FOUND_CODE)
-    {
-      return null;
-    }
-
-    // check for an error and throw as an exception
+    // check if there was a failure
     if (result != 0) {
+      // get the error code
+      int code = this.engineApi.getLastExceptionCode();
+
+      // check if not found
+      if (code == DATA_SOURCE_NOT_FOUND_CODE || code == RECORD_NOT_FOUND_CODE) {
+        return null;
+      }
+
+      // throw an exception for other errors
       String errorMsg = "G2Engine failed to retrieve an entity with error: "
           + formatError("G2Engine.getEntityByRecordID", this.engineApi);
       System.err.println(errorMsg);
@@ -1135,12 +1141,16 @@ public class G2Service {
     }
 
     // check if not found
-    if (result == ENTITY_NOT_FOUND_CODE) {
-      return null;
-    }
-
-    // check for an error and throw as an exception
     if (result != 0) {
+      // get the error code
+      int code = this.engineApi.getLastExceptionCode();
+
+      // check if not found
+      if (code == ENTITY_NOT_FOUND_CODE) {
+        return null;
+      }
+
+      // throw an exception otherwise
       String errorMsg = "G2Engine failed to find entity path with error: "
           + formatError("G2Engine.findPathByEntityId", this.engineApi);
       System.err.println(errorMsg);

@@ -1,5 +1,7 @@
 package com.senzing.listener.service.scheduling;
 
+import com.senzing.util.Quantified;
+
 import java.util.*;
 
 import static com.senzing.listener.service.scheduling.Task.State.UNSCHEDULED;
@@ -12,7 +14,7 @@ import static com.senzing.listener.service.scheduling.TaskGroup.State.*;
  * Synchronizing and waiting on an instance of this class will allow for
  * periodic non-busy waiting for completion.
  */
-public class TaskGroup {
+public class TaskGroup implements Quantified {
   /**
    * Constant used for converting between nanoseconds and milliseconds.
    */
@@ -73,7 +75,7 @@ public class TaskGroup {
   /**
    * Enumerates the statistics available for a {@link TaskGroup}.
    */
-  public enum Statistic {
+  public enum Stat implements Statistic {
     /**
      * The number of milliseconds from the point in time from when this task
      * group was created until it was {@linkplain #close() closed} to further
@@ -1242,23 +1244,23 @@ public class TaskGroup {
   public Map<Statistic, Number> getStatistics() {
     Map<Statistic, Number> result = new LinkedHashMap<>();
     synchronized (this) {
-      result.put(Statistic.openTime, this.getOpenTime());
-      result.put(Statistic.unscheduledTime, this.getUnscheduledTime());
+      result.put(Stat.openTime, this.getOpenTime());
+      result.put(Stat.unscheduledTime, this.getUnscheduledTime());
       long pendingTime = this.getPendingTime();
       if (pendingTime > 0L) {
-        result.put(Statistic.pendingTime, pendingTime);
+        result.put(Stat.pendingTime, pendingTime);
       }
-      result.put(Statistic.totalHandlingTime, this.getTotalHandlingTime());
+      result.put(Stat.totalHandlingTime, this.getTotalHandlingTime());
       long longestTime = this.getLongestHandlingTime();
       if (longestTime > 0L) {
-        result.put(Statistic.longestHandlingTime, longestTime);
+        result.put(Stat.longestHandlingTime, longestTime);
       }
-      result.put(Statistic.roundTripTime,   this.getRoundTripTime());
-      result.put(Statistic.lifespan,        this.getLifespan());
-      result.put(Statistic.taskCount,       this.getTaskCount());
-      result.put(Statistic.pendingCount,    this.getPendingCount());
-      result.put(Statistic.successCount,    this.getSuccessCount());
-      result.put(Statistic.failureCount,    this.getFailureCount());
+      result.put(Stat.roundTripTime, this.getRoundTripTime());
+      result.put(Stat.lifespan, this.getLifespan());
+      result.put(Stat.taskCount, this.getTaskCount());
+      result.put(Stat.pendingCount, this.getPendingCount());
+      result.put(Stat.successCount, this.getSuccessCount());
+      result.put(Stat.failureCount, this.getFailureCount());
     }
     return result;
   }

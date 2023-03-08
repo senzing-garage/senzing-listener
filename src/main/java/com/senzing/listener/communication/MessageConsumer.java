@@ -3,11 +3,14 @@ package com.senzing.listener.communication;
 import com.senzing.listener.communication.exception.MessageConsumerException;
 import com.senzing.listener.communication.exception.MessageConsumerSetupException;
 import com.senzing.listener.service.MessageProcessor;
+import com.senzing.util.Quantified;
+
+import javax.json.JsonObject;
 
 /**
  * Interface for a queue consumer.
  */
-public interface MessageConsumer {
+public interface MessageConsumer extends Quantified {
   /**
    * Enumerates the various states of the {@link MessageConsumer}.
    */
@@ -58,14 +61,14 @@ public interface MessageConsumer {
   State getState();
 
   /**
-   * Initializes the consumer.
+   * Initializes the consumer with a {@link JsonObject} describing the
+   * configuration.
    * 
-   * @param config Configuration string.  It can be in JSON or other appropriate
-   *               format.
+   * @param config The {@link JsonObject} describing the configuration.
    * 
    * @throws MessageConsumerSetupException If a failure occurs.
    */
-  void init(String config) throws MessageConsumerSetupException;
+  void init(JsonObject config) throws MessageConsumerSetupException;
 
   /**
    * Consumer main function.  This method receives messages from the message

@@ -21,13 +21,19 @@ import java.util.*;
 
 import static com.senzing.util.JsonUtilities.*;
 import static com.senzing.listener.service.scheduling.SchedulingService.State.*;
-import static com.senzing.listener.service.scheduling.AbstractSchedulingService.Statistic.*;
+import static com.senzing.listener.service.scheduling.AbstractSchedulingService.Stat.*;
 import static com.senzing.listener.service.ServiceUtilities.*;
+import static java.lang.Boolean.*;
 
 /**
  * Provides an abstract base class for implementing {@link SchedulingService}.
  */
 public abstract class AbstractSchedulingService implements SchedulingService {
+  /**
+   * The number of milliseconds to wait for the task handler to be ready.
+   */
+  private static final long READY_TIMEOUT = 2000L;
+
   /**
    * Constant for nonosecond/millisecond conversion.
    */
@@ -162,39 +168,39 @@ public abstract class AbstractSchedulingService implements SchedulingService {
       = "lockingServiceConfig";
 
   /**
-   * Millisecond units constant for {@link Statistic} instances.
+   * Millisecond units constant for {@link Stat} instances.
    */
   private static final String MILLISECOND_UNITS = "ms";
 
   /**
-   * Thread units constant for {@link Statistic} instances.
+   * Thread units constant for {@link Stat} instances.
    */
   private static final String THREAD_UNITS = "threads";
 
   /**
-   * Task units constant for {@link Statistic} instances.
+   * Task units constant for {@link Stat} instances.
    */
   private static final String TASK_UNITS = "tasks";
 
   /**
-   * Task group units constant for {@link Statistic} instances.
+   * Task group units constant for {@link Stat} instances.
    */
   private static final String TASK_GROUP_UNITS = "task groups";
 
   /**
-   * Call units constant for {@link Statistic} instances.
+   * Call units constant for {@link Stat} instances.
    */
   private static final String CALL_UNITS = "calls";
 
   /**
-   * Tasks per call units constant for {@link Statistic} instances.
+   * Tasks per call units constant for {@link Stat} instances.
    */
   private static final String TASKS_PER_CALL_UNITS = "tasks per call";
 
   /**
    * The various keys used for timing operations.
    */
-  public enum Statistic {
+  public enum Stat implements Statistic {
     /**
      * The number of worker threads used to asynchronously handle the tasks.
      */
@@ -547,7 +553,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
      * Constructs the statistic instance with the associated units.
      * @param units The units that the statistic is measured in.
      */
-    Statistic(String units) {
+    Stat(String units) {
       this.units = units;
     }
 
@@ -1827,6 +1833,42 @@ public abstract class AbstractSchedulingService implements SchedulingService {
 
       // create the thread
       this.taskHandlingThread = new Thread(() -> {
+        TaskHandler taskHandler = this.getTaskHandler();
+        Boolean     ready       = null;
+        int         count       = 0;
+
+        try {
+          do {
+            if (count > 0) {
+              System.err.println(
+                  "****** STILL WAITING ON TASK HANDLER READINESS");
+            }
+            count++;
+            ready = taskHandler.waitUntilReady(READY_TIMEOUT);
+          } while (FALSE.equals(ready));
+
+        } catch (InterruptedException e) {
+          System.err.println(
+              "****** INTERRUPTED WHILE WAITING ON TASK HANDLER READINESS");
+          e.printStackTrace();
+          return;
+        }
+
+        // check if ready state indicates a failure
+        if (ready == null) {
+          System.err.println(
+              "****** TASK HANDLER HAS INDICATED A FAILURE PREVENTING "
+                  + "READINESS (CHECK LOGS)");
+          return;
+        }
+
+        // check if ready state is false (should not get here)
+        if (FALSE.equals(ready)) {
+          System.err.println(
+              "****** TASK HANDLER NEVER BECAME READY TO HANDLE TASKS");
+          return;
+        }
+
         SUPPRESS_HANDLING_CHECK.set(true);
         this.handleTasks();
       });
@@ -2411,13 +2453,15 @@ public abstract class AbstractSchedulingService implements SchedulingService {
   protected abstract void doDestroy();
 
   /**
-   * Converts the specified {@link Statistic} instances to an array of
-   * {@link String} instances.
-   * @param statistics The {@link Statistic} instances to convert.
+   * Converts the specified {@link Stat} instances to an array
+   * of {@link String} instances.
+   *
+   * @param statistics The {@link Stat} instances to convert.
+   *
    * @return The array of {@link String} instances describing the specified
-   *         {@link Statistic} instances.
+   *         {@link Stat} instances.
    */
-  private String[] convertTimerKeys(Statistic... statistics) {
+  private String[] convertTimerKeys(Stat... statistics) {
     String[] names = (statistics == null || statistics.length == 0)
         ? null : new String[statistics.length];
     if (names != null) {
@@ -2476,10 +2520,13 @@ public abstract class AbstractSchedulingService implements SchedulingService {
 
   /**
    * Resumes the associated {@link Timers} in a thread-safe manner.
-   * @param statistic The {@link Statistic} to resume.
-   * @param addlTimers The additional {@link Statistic} instances to resume.
+   * @param statistic The {@link Stat} to resume.
+   * @param addlTimers The additional {@link Stat} instances to
+   *                   resume.
    */
-  protected void timerResume(Statistic statistic, Statistic... addlTimers) {
+  protected void timerResume(Stat statistic,
+                             Stat... addlTimers)
+  {
     String[] names = this.convertTimerKeys(addlTimers);
     synchronized (this.getStatisticsMonitor()) {
       if (names == null) {
@@ -2492,10 +2539,13 @@ public abstract class AbstractSchedulingService implements SchedulingService {
 
   /**
    * Starts the associated {@link Timers} in a thread-safe manner.
-   * @param statistic The {@link AbstractMessageConsumer.Statistic} to start.
-   * @param addlTimers The additional {@link Statistic} instances to start.
+   * @param statistic The {@link AbstractMessageConsumer.Stat} to start.
+   * @param addlTimers The additional {@link Stat} instances to
+   *                   start.
    */
-  protected void timerStart(Statistic statistic, Statistic... addlTimers) {
+  protected void timerStart(Stat statistic,
+                            Stat...  addlTimers)
+  {
     String[] names = this.convertTimerKeys(addlTimers);
     synchronized (this.getStatisticsMonitor()) {
       if (names == null) {
@@ -2508,10 +2558,13 @@ public abstract class AbstractSchedulingService implements SchedulingService {
 
   /**
    * Pauses the associated {@link Timers} in a thread-safe manner.
-   * @param statistic The {@link Statistic} to pause.
-   * @param addlTimers The additional {@link Statistic} instances to pause.
+   * @param statistic The {@link Stat} to pause.
+   * @param addlTimers The additional {@link Stat} instances to
+   *                   pause.
    */
-  protected void timerPause(Statistic statistic, Statistic... addlTimers) {
+  protected void timerPause(Stat statistic,
+                            Stat...  addlTimers)
+  {
     String[] names = this.convertTimerKeys(addlTimers);
     synchronized (this.getStatisticsMonitor()) {
       if (names == null) {
@@ -2523,12 +2576,13 @@ public abstract class AbstractSchedulingService implements SchedulingService {
   }
 
   /**
-   * Gets the {@link Map} of {@link AbstractMessageConsumer.Statistic} keys to
+   * Gets the {@link Map} of {@link AbstractMessageConsumer.Stat} keys to
    * their {@link Number} values in an atomic thread-safe manner.
    *
-   * @return The {@link Map} of {@link AbstractMessageConsumer.Statistic} keys
+   * @return The {@link Map} of {@link AbstractMessageConsumer.Stat} keys
    *         to their {@link Number} values.
    */
+  @Override
   public Map<Statistic, Number> getStatistics() {
     synchronized (this.getStatisticsMonitor()) {
       Number value = null;
@@ -2536,11 +2590,11 @@ public abstract class AbstractSchedulingService implements SchedulingService {
 
       Map<Statistic, Number> statsMap = new LinkedHashMap<>();
 
-      statsMap.put(Statistic.concurrency, this.getConcurrency());
-      statsMap.put(Statistic.standardTimeout, this.getStandardTimeout());
-      statsMap.put(Statistic.postponedTimeout, this.getPostponedTimeout());
-      statsMap.put(Statistic.followUpDelay, this.getFollowUpDelay());
-      statsMap.put(Statistic.followUpTimeout, this.getFollowUpTimeout());
+      statsMap.put(AbstractSchedulingService.Stat.concurrency, this.getConcurrency());
+      statsMap.put(AbstractSchedulingService.Stat.standardTimeout, this.getStandardTimeout());
+      statsMap.put(AbstractSchedulingService.Stat.postponedTimeout, this.getPostponedTimeout());
+      statsMap.put(AbstractSchedulingService.Stat.followUpDelay, this.getFollowUpDelay());
+      statsMap.put(AbstractSchedulingService.Stat.followUpTimeout, this.getFollowUpTimeout());
 
       value = this.getAverageTaskTime();
       if (value != null) statsMap.put(averageTaskTime, value);
@@ -2549,20 +2603,20 @@ public abstract class AbstractSchedulingService implements SchedulingService {
       if (value != null) statsMap.put(averageTaskGroupTime, value);
 
       value = this.getLongestTaskTime();
-      if (value != null) statsMap.put(Statistic.longestTaskTime, value);
+      if (value != null) statsMap.put(AbstractSchedulingService.Stat.longestTaskTime, value);
 
       value = this.getLongestTaskGroupTime();
-      if (value != null) statsMap.put(Statistic.longestTaskGroupTime, value);
+      if (value != null) statsMap.put(AbstractSchedulingService.Stat.longestTaskGroupTime, value);
 
-      statsMap.put(Statistic.taskCompleteCount, this.getCompletedTaskCount());
-      statsMap.put(Statistic.taskSuccessCount, this.getSuccessfulTaskCount());
-      statsMap.put(Statistic.taskFailureCount, this.getFailedTaskCount());
-      statsMap.put(Statistic.taskAbortCount, this.getAbortedTaskCount());
-      statsMap.put(Statistic.followUpCompleteCount,
+      statsMap.put(AbstractSchedulingService.Stat.taskCompleteCount, this.getCompletedTaskCount());
+      statsMap.put(AbstractSchedulingService.Stat.taskSuccessCount, this.getSuccessfulTaskCount());
+      statsMap.put(AbstractSchedulingService.Stat.taskFailureCount, this.getFailedTaskCount());
+      statsMap.put(AbstractSchedulingService.Stat.taskAbortCount, this.getAbortedTaskCount());
+      statsMap.put(AbstractSchedulingService.Stat.followUpCompleteCount,
                    this.getCompletedFollowUpCount());
-      statsMap.put(Statistic.followUpSuccessCount,
+      statsMap.put(AbstractSchedulingService.Stat.followUpSuccessCount,
                    this.getSuccessfulFollowUpCount());
-      statsMap.put(Statistic.followUpFailureCount,
+      statsMap.put(AbstractSchedulingService.Stat.followUpFailureCount,
                    this.getFailedFollowUpCount());
 
       value = this.getAverageHandleTaskTime();
@@ -2603,11 +2657,11 @@ public abstract class AbstractSchedulingService implements SchedulingService {
       value = this.getDequeueHitRatio();
       if (value != null) statsMap.put(dequeueHitRatio, value);
 
-      statsMap.put(Statistic.greatestPostponedCount,
+      statsMap.put(AbstractSchedulingService.Stat.greatestPostponedCount,
                    this.getGreatestPostponedCount());
 
       // now get the timings
-      for (Statistic statistic : Statistic.values()) {
+      for (Stat statistic : AbstractSchedulingService.Stat.values()) {
         value = timings.get(statistic.toString());
         if (value != null) {
           statsMap.put(statistic, value);

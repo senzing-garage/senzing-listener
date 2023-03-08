@@ -19,7 +19,7 @@ import static com.senzing.util.JsonUtilities.parseJsonArray;
 import static com.senzing.util.JsonUtilities.toJsonText;
 import static com.senzing.listener.communication.MessageConsumer.State.*;
 import static com.senzing.util.AsyncWorkerPool.*;
-import static com.senzing.listener.communication.AbstractMessageConsumer.Statistic.*;
+import static com.senzing.listener.communication.AbstractMessageConsumer.Stat.*;
 
 /**
  * Base class for {@link MessageConsumer} implementations.
@@ -54,29 +54,29 @@ public abstract class AbstractMessageConsumer<M> implements MessageConsumer
   public static final String TIMEOUT_KEY = "timeout";
 
   /**
-   * Millisecond units constant for {@link Statistic} instances.
+   * Millisecond units constant for {@link Stat} instances.
    */
   private static final String MILLISECOND_UNITS = "ms";
 
   /**
-   * Thread units constant for {@link Statistic} instances.
+   * Thread units constant for {@link Stat} instances.
    */
   private static final String THREAD_UNITS = "threads";
 
   /**
-   * Message units constant for {@link Statistic} instances.
+   * Message units constant for {@link Stat} instances.
    */
   private static final String MESSAGE_UNITS = "messages";
 
   /**
-   * Call units constant for {@link Statistic} instances.
+   * Call units constant for {@link Stat} instances.
    */
   private static final String CALL_UNITS = "calls";
 
   /**
    * The various keys used for timing operations.
    */
-  public enum Statistic {
+  public enum Stat implements Statistic {
     /**
      * The number of worker threads used to asynchronously consume the messages.
      */
@@ -224,7 +224,7 @@ public abstract class AbstractMessageConsumer<M> implements MessageConsumer
     dequeueMessageWait(MILLISECOND_UNITS),
 
     /**
-     * The number of milliseconds spent calling {@link #init(String)}.
+     * The number of milliseconds spent calling {@link #init(JsonObject)}.
      */
     initialize(MILLISECOND_UNITS),
 
@@ -295,7 +295,7 @@ public abstract class AbstractMessageConsumer<M> implements MessageConsumer
      *
      * @param units The units to construct with.
      */
-    Statistic(String units) {
+    Stat(String units) {
       this.units = units;
     }
 
@@ -546,34 +546,35 @@ public abstract class AbstractMessageConsumer<M> implements MessageConsumer
   }
 
   /**
-   * Gets the {@link Map} of {@link Statistic} keys to their {@link Number}
+   * Gets the {@link Map} of {@link Stat} keys to their {@link Number}
    * values in an atomic thread-safe manner.
    *
-   * @return The {@link Map} of {@link Statistic} keys to their {@link Number}
+   * @return The {@link Map} of {@link Stat} keys to their {@link Number}
    *         values.
    */
-  protected Map<Statistic, Number> getStatistics() {
+  @Override
+  public Map<Statistic, Number> getStatistics() {
     synchronized (this.getStatisticsMonitor()) {
       Map<String, Long> timings = this.timers.getTimings();
 
       Map<Statistic, Number> statsMap = new LinkedHashMap<>();
 
-      statsMap.put(Statistic.concurrency, getConcurrency());
+      statsMap.put(Stat.concurrency, getConcurrency());
       statsMap.put(averageRoundTrip, this.getAverageRoundTripMillis());
       statsMap.put(longestRoundTrip, this.getLongestRoundTripMillis());
       statsMap.put(averageServiceProcess, this.getAverageProcessMillis());
       statsMap.put(roundTripCount, this.getCompletedMessageCount());
       statsMap.put(messageRetryCount, this.getMessageRetryCount());
       statsMap.put(processCount, this.getProcessedInfoMessageCount());
-      statsMap.put(Statistic.processSuccessCount,
+      statsMap.put(Stat.processSuccessCount,
                    this.getInfoMessageSuccessCount());
-      statsMap.put(Statistic.processFailureCount,
+      statsMap.put(Stat.processFailureCount,
                    this.getInfoMessageFailureCount());
-      statsMap.put(Statistic.processRetryCount, this.getInfoMessageRetryCount());
+      statsMap.put(Stat.processRetryCount, this.getInfoMessageRetryCount());
       statsMap.put(parallelism, this.getParallelism());
       statsMap.put(dequeueHitRatio, this.getDequeueHitRatio());
 
-      for (Statistic statistic : Statistic.values()) {
+      for (Stat statistic : Stat.values()) {
         Number value = timings.get(statistic.toString());
         if (value != null) {
           statsMap.put(statistic, value);
@@ -594,7 +595,7 @@ public abstract class AbstractMessageConsumer<M> implements MessageConsumer
    *                                       initialization.
    */
   @Override
-  public void init(String config) throws MessageConsumerSetupException {
+  public void init(JsonObject config) throws MessageConsumerSetupException {
     synchronized (this) {
       if (this.getState() != UNINITIALIZED) {
         throw new IllegalStateException(
@@ -606,21 +607,18 @@ public abstract class AbstractMessageConsumer<M> implements MessageConsumer
     }
 
     try {
-      // parse the config
-      JsonObject jsonConfig = parseJsonObject(config);
-
       synchronized (this) {
         // create the locking service
         this.lockingService = new ProcessScopeLockingService();
         this.lockingService.init(null);
 
-        this.concurrency = getConfigInteger(jsonConfig,
+        this.concurrency = getConfigInteger(config,
                                             CONCURRENCY_KEY,
                                             1,
                                             DEFAULT_CONCURRENCY);
 
         // get the standard timeout
-        this.timeout = getConfigLong(jsonConfig,
+        this.timeout = getConfigLong(config,
                                      TIMEOUT_KEY,
                                      0L,
                                      DEFAULT_TIMEOUT);
@@ -630,7 +628,7 @@ public abstract class AbstractMessageConsumer<M> implements MessageConsumer
       }
 
       // defer additional configuration
-      this.doInit(jsonConfig);
+      this.doInit(config);
 
     } catch (MessageConsumerSetupException e) {
       throw e;
@@ -645,9 +643,9 @@ public abstract class AbstractMessageConsumer<M> implements MessageConsumer
   }
 
   /**
-   * Called by the {@link #init(String)} implementation after handling the base
-   * configuration parameters and parsing the specified {@link String} as a
-   * {@link JsonObject}.
+   * Called by the {@link #init(JsonObject)} implementation after handling the
+   * base configuration parameters and parsing the specified {@link String} as
+   * a {@link JsonObject}.
    *
    * @param config The {@link JsonObject} describing the configuration.
    *
@@ -964,6 +962,7 @@ public abstract class AbstractMessageConsumer<M> implements MessageConsumer
     try {
       // get the message text and ensure it is non-empty and non-null
       String messageText = this.extractMessageBody(message);
+
       if (messageText == null) return;
       messageText = messageText.trim();
       if (messageText.length() == 0) return;
@@ -2033,13 +2032,13 @@ public abstract class AbstractMessageConsumer<M> implements MessageConsumer
   }
 
   /**
-   * Converts the specified {@link Statistic} instances to an array of
+   * Converts the specified {@link Stat} instances to an array of
    * {@link String} instances.
-   * @param statistics The {@link Statistic} instances to convert.
+   * @param statistics The {@link Stat} instances to convert.
    * @return The array of {@link String} instances describing the specified
-   *         {@link Statistic} instances.
+   *         {@link Stat} instances.
    */
-  private String[] convertTimerKeys(Statistic... statistics) {
+  private String[] convertTimerKeys(Stat... statistics) {
     String[] names = (statistics == null || statistics.length == 0)
         ? null : new String[statistics.length];
     if (names != null) {
@@ -2091,10 +2090,10 @@ public abstract class AbstractMessageConsumer<M> implements MessageConsumer
 
   /**
    * Resumes the associated {@link Timers} in a thread-safe manner.
-   * @param statistic The {@link Statistic} to resume.
-   * @param addlTimers The additional {@link Statistic} instances to resume.
+   * @param statistic The {@link Stat} to resume.
+   * @param addlTimers The additional {@link Stat} instances to resume.
    */
-  protected void timerResume(Statistic statistic, Statistic... addlTimers) {
+  protected void timerResume(Stat statistic, Stat... addlTimers) {
     String[] names = this.convertTimerKeys(addlTimers);
     synchronized (this.getStatisticsMonitor()) {
       if (names == null) {
@@ -2107,10 +2106,10 @@ public abstract class AbstractMessageConsumer<M> implements MessageConsumer
 
   /**
    * Starts the associated {@link Timers} in a thread-safe manner.
-   * @param statistic The {@link Statistic} to start.
-   * @param addlTimers The additional {@link Statistic} instances to start.
+   * @param statistic The {@link Stat} to start.
+   * @param addlTimers The additional {@link Stat} instances to start.
    */
-  protected void timerStart(Statistic statistic, Statistic... addlTimers) {
+  protected void timerStart(Stat statistic, Stat... addlTimers) {
     String[] names = this.convertTimerKeys(addlTimers);
     synchronized (this.getStatisticsMonitor()) {
       if (names == null) {
@@ -2123,10 +2122,10 @@ public abstract class AbstractMessageConsumer<M> implements MessageConsumer
 
   /**
    * Pauses the associated {@link Timers} in a thread-safe manner.
-   * @param statistic The {@link Statistic} to pause.
-   * @param addlTimers The additional {@link Statistic} instances to pause.
+   * @param statistic The {@link Stat} to pause.
+   * @param addlTimers The additional {@link Stat} instances to pause.
    */
-  protected void timerPause(Statistic statistic, Statistic... addlTimers) {
+  protected void timerPause(Stat statistic, Stat... addlTimers) {
     String[] names = this.convertTimerKeys(addlTimers);
     synchronized (this.getStatisticsMonitor()) {
       if (names == null) {
