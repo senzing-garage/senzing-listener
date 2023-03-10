@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2023-03-08
+
+### Changed in 0.3.1
+
+- Added initWithG2Config method for initializing G2 with json configuration string instead of path to the G2 ini file
+
 ## [0.3.0] - 2022-09-29
 
 ### Changed in 0.3.0
