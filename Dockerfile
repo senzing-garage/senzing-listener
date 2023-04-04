@@ -1,5 +1,5 @@
 ARG BASE_IMAGE=senzing/senzingapi-runtime:3.5.0
-ARG BASE_BUILDER_IMAGE=debian:11.6-slim@sha256:7acda01e55b086181a6fa596941503648e423091ca563258e2c1657d140355b1
+ARG BASE_BUILDER_IMAGE=senzing/base-image-debian:1.0.6
 
 # -----------------------------------------------------------------------------
 # Stage: builder
@@ -11,7 +11,7 @@ ENV REFRESHED_AT=2023-04-03
 
 LABEL Name="senzing/senzing-listener-builder" \
       Maintainer="support@senzing.com" \
-      Version="0.3.0"
+      Version="0.3.2"
 
 # Set environment variables.
 
@@ -39,7 +39,7 @@ ENV REFRESHED_AT=2023-04-03
 
 LABEL Name="senzing/senzing-listener" \
       Maintainer="support@senzing.com" \
-      Version="0.3.0"
+      Version="0.3.2"
 
 HEALTHCHECK CMD ["/app/healthcheck.sh"]
 
