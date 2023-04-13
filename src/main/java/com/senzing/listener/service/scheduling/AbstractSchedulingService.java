@@ -1220,10 +1220,8 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    * Creates a {@link Scheduler} for creating follow-up tasks to the specified
    * {@link ScheduledTask} unless follow-up tasks are not supported for the
    * specified {@link ScheduledTask}.  The default implementation will
-   * return <code>null</code> if the specified {@link ScheduledTask} describes
-   * one or more follow-up tasks, otherwise this method creates a
-   * {@link Scheduler} that will <b>not</b> have an associated
-   * {@link TaskGroup}.
+   * always create a {@link DefaultScheduler} that will <b>not</b> have an
+   * associated {@link TaskGroup}.
    *
    * @param task The {@link ScheduledTask} for which to create the follow-up
    *             scheduler.
@@ -1231,14 +1229,8 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    *         tasks are not allowed for the specified {@link ScheduledTask}.
    */
   protected Scheduler createFollowUpScheduler(ScheduledTask task) {
-    // check if this is a follow-up task
-    if (task.isFollowUp()) {
-      // don't create a scheduler for a follow-up task
-      return null;
-    } else {
-      // if a normal task, then create a follow-up scheduler
-      return new DefaultScheduler(this);
-    }
+    // create a follow-up scheduler
+    return new DefaultScheduler(this);
   }
 
   /**
