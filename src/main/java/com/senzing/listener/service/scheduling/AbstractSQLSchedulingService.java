@@ -17,6 +17,7 @@ import static com.senzing.listener.service.ServiceUtilities.getConfigString;
 import static com.senzing.sql.SQLUtilities.close;
 import static com.senzing.sql.SQLUtilities.rollback;
 import static java.lang.Boolean.FALSE;
+import static com.senzing.util.LoggingUtilities.*;
 
 /**
  * Implements {@link SchedulingService} using a SQLite database to handle
@@ -74,43 +75,7 @@ public abstract class AbstractSQLSchedulingService
    * @throws SQLException If a JDBC failure occurs.
    */
   protected Connection getConnection() throws SQLException {
-    StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
-    StackTraceElement caller = null;
-    for (int index = 0; index < stackTrace.length; index++) {
-      StackTraceElement frame = stackTrace[index];
-      if (frame.getMethodName().equals("getConnection")) {
-        caller = stackTrace[index+1];
-        break;
-      }
-    }
-    synchronized (this.callCountMap) {
-      int[] count = this.callCountMap.get(caller.getMethodName());
-      if (count == null) {
-        count = new int[1];
-        count[0] = 0;
-        this.callCountMap.put(caller.getMethodName(), count);
-      }
-      count[0]++;
-    }
-
     return this.connectionProvider.getConnection();
-  }
-
-  /**
-   *
-   */
-  @Override
-  public Map<Statistic, Number> getStatistics() {
-    synchronized (this.callCountMap) {
-      System.err.println();
-      System.err.println("==================================================");
-      this.callCountMap.forEach((key,val) -> {
-        System.err.println(key + " = " + val[0]);
-      });
-      System.err.println("==================================================");
-      System.err.println();
-    }
-    return super.getStatistics();
   }
 
   /**
@@ -271,9 +236,7 @@ public abstract class AbstractSQLSchedulingService
       } if (rowCount == 1) {
         return true;
       } else {
-        System.err.println();
-        System.err.println("********************************");
-        System.err.println("MULTIPLE ROWS UPDATED FOR FOLLOW-UP TASK: " + task);
+        logError("MULTIPLE ROWS UPDATED FOR FOLLOW-UP TASK: ", task);
         throw new IllegalStateException(
             "Somehow updated multiple rows when updating task multiplicity.  "
                 + "task=[ " + task + " ]");
@@ -489,9 +452,17 @@ public abstract class AbstractSQLSchedulingService
 
     PreparedStatement ps = null;
     try {
+      // count the non-follow-up tasks
+      int taskCount = this.getPendingTaskCount() + this.getPostponedTaskCount();
+      if (taskCount == 0) {
+        logDebug("FOLLOW-UP LEASE: Foregoing full follow-up delay since "
+                 + "it appears there are no other tasks to handle.");
+      }
+      long followUpOffset = (taskCount == 0) ? 0L : this.getFollowUpDelay();
+
       // don't be too aggressive on expiring leases
       long now              = System.currentTimeMillis();
-      long delayMillis      = now - this.getFollowUpDelay();
+      long delayMillis      = now - followUpOffset;
       long timeoutMillis    = now - this.getFollowUpTimeout();
       Timestamp delayTime   = new Timestamp(delayMillis);
       Timestamp timeoutTime = new Timestamp(timeoutMillis);
@@ -631,12 +602,10 @@ public abstract class AbstractSQLSchedulingService
                                                    leaseIdSet);
 
       if (updateCount != tasks.size()) {
-        System.err.println();
-        System.err.println("---------------------------------------------");
-        System.err.println("WARNING: Renewed lease on " + updateCount
-                               + " follow-up tasks when expected to update "
-                               + tasks.size() + " follow-up tasks: "
-                               + leaseIdSet);
+        logWarning("WARNING: Renewed lease on " + updateCount
+                       + " follow-up tasks when expected to update "
+                       + tasks.size() + " follow-up tasks: "
+                       + leaseIdSet);
       }
 
       // commit the change
@@ -723,9 +692,8 @@ public abstract class AbstractSQLSchedulingService
       boolean deleted = this.deleteFollowUpTask(conn, task);
 
       if (!deleted) {
-        System.err.println();
-        System.err.println("------------------------------------------------");
-        System.err.println("WARNING: Follow-up task was already completed");
+        logWarning("WARNING: Follow-up task was already completed: ",
+                   task);
       }
 
       // commit the transaction

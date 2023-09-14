@@ -8,6 +8,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 import static com.senzing.sql.SQLUtilities.close;
+import static com.senzing.util.LoggingUtilities.logError;
 
 /**
  * Implements {@link SchedulingService} using a SQLite database to handle
@@ -123,9 +124,7 @@ public class PostgreSQLSchedulingService extends AbstractSQLSchedulingService {
         try {
           stmt.execute(sql);
         } catch (SQLException e) {
-          System.err.println();
-          System.err.println(sql);
-          e.printStackTrace();
+          logError(e, "SQL Error Encountered: ", sql);
           throw e;
         }
       }

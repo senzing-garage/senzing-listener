@@ -431,6 +431,9 @@ public class TaskGroup implements Quantified {
     if (this.getState() != OPEN) return;
     this.setState(CLOSED);
     this.closedTimeNanos = System.nanoTime();
+    if (this.getTaskCount() == 0) {
+      this.checkCompletion();
+    }
   }
 
   /**
@@ -811,9 +814,10 @@ public class TaskGroup implements Quantified {
    */
   private synchronized void checkCompletion() {
     // check if this the first or last completed
+    int taskCount       = this.getTaskCount();
     int completedCount  = this.getCompletedCount();
     int abortedCount    = this.getAbortedCount();
-    if (completedCount == 1) {
+    if (completedCount == 1 || taskCount == 0) {
       this.firstHandledTimeNanos = System.nanoTime();
     }
     // check the failure count and mark as failed if needed
@@ -824,7 +828,7 @@ public class TaskGroup implements Quantified {
 
     // check if the task group is complete
     boolean fastFail = this.isFastFail();
-    if (completedCount == this.getTaskCount() || (failureCount > 0 && fastFail))
+    if (completedCount == taskCount || (failureCount > 0 && fastFail))
     {
       // set the completion time if not already set
       if (this.completedTimeNanos < 0L) {

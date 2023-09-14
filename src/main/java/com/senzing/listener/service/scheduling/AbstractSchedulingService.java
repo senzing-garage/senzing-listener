@@ -1,5 +1,6 @@
 package com.senzing.listener.service.scheduling;
 
+import com.ibm.icu.impl.UCaseProps;
 import com.senzing.listener.communication.AbstractMessageConsumer;
 import com.senzing.listener.service.MessageProcessor;
 import com.senzing.listener.service.exception.ServiceExecutionException;
@@ -11,6 +12,7 @@ import com.senzing.listener.service.locking.ResourceKey;
 import com.senzing.util.AsyncWorkerPool;
 import com.senzing.util.AsyncWorkerPool.AsyncResult;
 import com.senzing.util.JsonUtilities;
+import com.senzing.util.LoggingUtilities;
 import com.senzing.util.Timers;
 
 import javax.json.Json;
@@ -24,6 +26,7 @@ import static com.senzing.listener.service.scheduling.SchedulingService.State.*;
 import static com.senzing.listener.service.scheduling.AbstractSchedulingService.Stat.*;
 import static com.senzing.listener.service.ServiceUtilities.*;
 import static java.lang.Boolean.*;
+import static com.senzing.util.LoggingUtilities.*;
 
 /**
  * Provides an abstract base class for implementing {@link SchedulingService}.
@@ -74,7 +77,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    * The default number of follow-up tasks to fetch from persistent storage at
    * a time.
    */
-  public static final int DEFAULT_FOLLOW_UP_FETCH = 10;
+  public static final int DEFAULT_FOLLOW_UP_FETCH = 100;
 
   /**
    * The config property key for configuring the concurrency.
@@ -196,6 +199,26 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    * Tasks per call units constant for {@link Stat} instances.
    */
   private static final String TASKS_PER_CALL_UNITS = "tasks per call";
+
+  /**
+   * Enumerates the various task types.
+   */
+  private enum TaskType {
+    /**
+     * Pending tasks that have never been handled.
+     */
+    PENDING,
+
+    /**
+     * Postponed tasks that were previously attempted but postponed.
+     */
+    POSTPONED,
+
+    /**
+     * Follow-up tasks that were scheduled in response to previous tasks.
+     */
+    FOLLOW_UP;
+  }
 
   /**
    * The various keys used for timing operations.
@@ -489,6 +512,12 @@ public abstract class AbstractSchedulingService implements SchedulingService {
     initialize(MILLISECOND_UNITS),
 
     /**
+     * The cumulative number of milliseconds spent checking pending tasks
+     * to see if one is ready to be processed.
+     */
+    checkPending(MILLISECOND_UNITS),
+
+    /**
      * The cumulative number of milliseconds spent checking follow-up tasks
      * to see if they are now ready to be processed.
      */
@@ -588,6 +617,17 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    * The {@link State} for this instance.
    */
   private State state = UNINITIALIZED;
+
+  /**
+   * The {@link List} of {@link TaskType} instances specifying the {@link
+   * TaskType} order.
+   */
+  private List<TaskType> taskTypeOrder = null;
+
+  /**
+   * The current index into the {@link #taskTypeOrder} list.
+   */
+  private int taskTypeIndex = 0;
 
   /**
    * Flag indicating that {@link #handleTasks()} has been called and is
@@ -882,6 +922,8 @@ public abstract class AbstractSchedulingService implements SchedulingService {
     this.taskHandler    = null;
     this.lockingService = null;
     this.state          = UNINITIALIZED;
+    this.taskTypeIndex  = 0;
+    this.taskTypeOrder  = Arrays.asList(TaskType.values());
   }
 
   /**
@@ -1264,6 +1306,8 @@ public abstract class AbstractSchedulingService implements SchedulingService {
 
         // check if this is a follow-up task
         if (taskGroup == null) {
+          logDebug("ENQUEUEING FOLLOW-UP TASK: ", task);
+
           // enqueue the follow-up task for later retrieval
           this.enqueueFollowUpTask(task);
 
@@ -1280,18 +1324,23 @@ public abstract class AbstractSchedulingService implements SchedulingService {
           // check for existing tasks by the same signature
           ScheduledTask scheduledTask = this.taskCollapseLookup.get(signature);
           if (scheduledTask != null) {
+            logDebug("SCHEDULING TASK: ", task,
+                     "COLLAPSING WITH: ", scheduledTask);
+
             // simply collapse with the existing scheduled task
             scheduledTask.collapseWith(task);
 
           } else {
             // create a scheduled task and add to the pending queue
             scheduledTask = new ScheduledTask(task);
+            logDebug("SCHEDULING TASK: ", task);
             this.pendingTasks.add(scheduledTask);
             this.taskCollapseLookup.put(signature, scheduledTask);
           }
 
         } else {
           // the specified task cannot be collapsed with another
+          logDebug("SCHEDULING NON-COLLAPSING TASK: ", task);
           ScheduledTask scheduledTask = new ScheduledTask(task);
           this.pendingTasks.add(scheduledTask);
         }
@@ -1331,14 +1380,20 @@ public abstract class AbstractSchedulingService implements SchedulingService {
                                         this.postponedTasks.size(),
                                         this.workerPool.isBusy());
 
+      // determine if postponed tasks exist
+      boolean postponed = (this.getPostponedTaskCount() > 0);
+
       // determine how long to wait
-      long timeout = (this.getPostponedTaskCount() > 0)
+      long timeout = (postponed)
           ? Math.min(this.getPostponedTimeout(), this.getStandardTimeout())
           : this.getStandardTimeout();
 
       // wait for the designated duration
       this.timerStart(dequeueTaskWait);
       try {
+        logDebug("SLEEPING BEFORE RETRIEVING "
+                     + (postponed ? "POSTPONED" : "FOLLOW-UP")
+                     + " TASK: " + timeout);
         this.wait(timeout);
 
       } catch (InterruptedException ignore) {
@@ -1349,29 +1404,53 @@ public abstract class AbstractSchedulingService implements SchedulingService {
     }
     this.timerPause(dequeueTaskWaitLoop);
 
-    // check for a follow-up task that is ready, this will hit less frequently
-    // than postponed tasks if the timeouts and delays are properly configured
-    this.timerStart(checkFollowUp);
-    ScheduledTask task = null;
-    try {
-      task = this.getReadyFollowUpTask();
-    } catch (ServiceExecutionException e) {
-      System.err.println();
-      System.err.println("**************************************************");
-      System.err.println("FAILED TO OBTAIN A FOLLOW-UP TASK, "
-                             + "DEFERRING FOLLOW-UP TASKS FOR NOW");
-      e.printStackTrace();
+    // grab a postponed task if available
+    ScheduledTask task          = null;
+    TaskType      taskType      = null;
+    int           taskTypeCount = this.taskTypeOrder.size();
+    for (int index = 0; index < taskTypeCount && task == null; index++) {
+      taskType = this.taskTypeOrder.get(this.taskTypeIndex++);
+      this.taskTypeIndex = this.taskTypeIndex % taskTypeCount;
+      switch (taskType) {
+        case PENDING:
+          this.timerStart(checkPending);
+          try {
+            task = this.getReadyPendingTask();
+          } catch (Exception e) {
+            logWarning(e, "FAILED TO OBTAIN A TASK FROM THE PENDING QUEUE");
+          } finally {
+            this.timerPause(checkPending);
+          }
+          break;
 
-    } finally {
-      this.timerPause(checkFollowUp);
-    }
+        case POSTPONED:
+          this.timerStart(checkPostponed);
+          try {
+            task = this.getReadyPostponedTask();
+          } catch (Exception e) {
+            logWarning(e, "FAILED TO OBTAIN A POSTPONED TASK, "
+                + "DEFERRING POSTPONED TASKS FOR NOW");
+          } finally {
+            this.timerPause(checkPostponed);
+          }
+          break;
 
-    // check if no follow-up task was found, and if not, check postponed tasks
-    if (task == null) {
-      // check for a postponed task that is ready
-      this.timerStart(checkPostponed);
-      task = this.getReadyPostponedTask();
-      this.timerPause(checkPostponed);
+        case FOLLOW_UP:
+          this.timerStart(checkFollowUp);
+          try {
+            task = this.getReadyFollowUpTask();
+          } catch (ServiceExecutionException e) {
+            logWarning(e, "FAILED TO OBTAIN A FOLLOW-UP TASK, "
+                + "DEFERRING FOLLOW-UP TASKS FOR NOW");
+          } finally {
+            this.timerPause(checkFollowUp);
+          }
+          break;
+
+        default:
+          throw new IllegalStateException(
+              "Unrecognized task type: " + taskType);
+      }
     }
 
     // if not null then return the task
@@ -1402,68 +1481,6 @@ public abstract class AbstractSchedulingService implements SchedulingService {
       return task;
     }
 
-    this.timerStart(dequeueCheckLocked);
-
-    // if none ready then check if we can grab a pending task
-    while (this.pendingTasks.size() > 0) {
-      // get the candidate task
-      task = this.pendingTasks.remove(0);
-
-      // check if the task is aborted
-      if (this.skipIfAborted(task)) {
-        continue;
-      }
-
-      // attempt to lock the task resources
-      this.timerStart(obtainLocks);
-      boolean locked = task.acquireLocks(this.getLockingService());
-      this.timerPause(obtainLocks);
-
-      if (!locked) {
-        // if not locked then postpone the task
-        this.postponedTasks.add(task);
-
-        // check the postponed count to see if this is now the greatest
-        synchronized (this.getStatisticsMonitor()) {
-          int postponedCount = this.postponedTasks.size();
-          if (postponedCount > this.greatestPostponedCount) {
-            this.greatestPostponedCount = postponedCount;
-          }
-        }
-
-        // notify all
-        this.notifyAll();
-
-      } else {
-        this.timerPause(dequeueCheckLocked,
-                        waitingForTasks,
-                        waitingOnPostponed);
-        this.timerStart(activelyHandling);
-        this.updateDequeueHitRatio(hit);
-
-        // update the state
-        if (this.getState() == READY) {
-          this.setState(ACTIVE);
-        }
-
-        // check if we need to remove from the collapse lookup
-        if (task.isAllowingCollapse()) {
-          ScheduledTask collapse
-              = this.taskCollapseLookup.remove(task.getSignature());
-          if (task != collapse) {
-            throw new IllegalStateException(
-                "Collapse lookup table did not contain the same task as was "
-                    + "dequeued.  expected=[ " + task + " ], actual=[ "
-                    + collapse + " ]");
-          }
-        }
-
-        // this will short-circuit the loop
-        return task;
-      }
-    }
-    this.timerPause(dequeueCheckLocked);
-
     this.toggleActiveAndWaitingTimers(this.pendingTasks.size(),
                                       this.postponedTasks.size(),
                                       this.workerPool.isBusy());
@@ -1486,6 +1503,59 @@ public abstract class AbstractSchedulingService implements SchedulingService {
     }
 
     return null;
+  }
+
+  /**
+   * Returns a {@link ScheduledTask} from the pending queue that is ready for
+   * handling. This method will find the least-recently-scheduled task whose set
+   * of affected resources (identified by {@link ResourceKey} instances) could
+   * be locked without blocking and locks those resources.  If no such pending
+   * task could be found then <code>null</code> is returned.
+   *
+   * @return The next pending {@link ScheduledTask} that is now ready to try, or
+   *         <code>null</code> if none are ready to try.
+   */
+  protected synchronized ScheduledTask getReadyPendingTask() {
+    this.timerStart(dequeueCheckLocked);
+    try {
+      // if none ready then check if we can grab a pending task
+      while (this.pendingTasks.size() > 0) {
+        // get the candidate task
+        ScheduledTask task = this.pendingTasks.remove(0);
+
+        // check if the task is aborted
+        if (this.skipIfAborted(task)) {
+          continue;
+        }
+
+        // attempt to lock the task resources
+        this.timerStart(obtainLocks);
+        boolean locked = task.acquireLocks(this.getLockingService());
+        this.timerPause(obtainLocks);
+
+        // if the lock was obtained, return the task
+        if (locked) return task;
+
+        // if not locked then postpone the task
+        this.postponedTasks.add(task);
+
+        // check the postponed count to see if this is now the greatest
+        synchronized (this.getStatisticsMonitor()) {
+          int postponedCount = this.postponedTasks.size();
+          if (postponedCount > this.greatestPostponedCount) {
+            this.greatestPostponedCount = postponedCount;
+          }
+        }
+         // notify all
+        this.notifyAll();
+      }
+
+      // if we get here then return null
+      return null;
+
+    } finally {
+      this.timerPause(dequeueCheckLocked);
+    }
   }
 
   /**
@@ -1612,7 +1682,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
     // get the elapsed time and update the timestamp
     long now                = System.nanoTime();
     long elapsedNanos       = now - this.postponedNanoTime;
-    long elapsedMillis      = elapsedNanos / 1000000L;
+    long elapsedMillis      = elapsedNanos / ONE_MILLION;
 
     // check the timestamp
     return (elapsedMillis >= this.getPostponedTimeout());
@@ -1638,18 +1708,11 @@ public abstract class AbstractSchedulingService implements SchedulingService {
   protected synchronized ScheduledTask getReadyFollowUpTask()
     throws ServiceExecutionException
   {
-    // get the elapsed time and update the timestamp
-    long now                = System.nanoTime();
-    long elapsedNanos       = now - this.followUpNanoTime;
-    long elapsedMillis      = elapsedNanos / ONE_MILLION;
-
-    // check the timestamp
-    if (elapsedMillis < (this.getFollowUpDelay()/2)) {
-      return null;
-    }
+    // get the current timestamp
+    long now = System.nanoTime();
 
     // check if there are no follow-up messages
-    if (this.followUpTasks.size() == 0) {
+    if (this.followUpTasks.size() <= 1) {
       // we have no follow-up tasks in the cache, let's get some
       List<ScheduledTask> tasks = this.dequeueFollowUpTasks(
           this.getFollowUpFetchCount());
@@ -1661,9 +1724,10 @@ public abstract class AbstractSchedulingService implements SchedulingService {
 
       // check if we still have no follow-up tasks
       if (this.followUpTasks.size() == 0) {
-        // since we have checked all the postponed messages (none) and none are
+        // since we have checked all the follow-up messages (none) and none are
         // ready then we need to update the timestamp
         this.followUpNanoTime = now;
+        logDebug("RESET FOLLOW-UP CHECK TIME");
 
         // return null since there are no follow-up tasks
         return null;
@@ -1704,6 +1768,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
         // since we have checked all the follow-up messages for readiness we
         // can update the timestamp so we don't busy check again and again
         this.followUpNanoTime = now;
+        logDebug("RESET FOLLOW-UP CHECK TIME");
       }
     }
 
@@ -1724,7 +1789,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
     // get the elapsed time and update the timestamp
     long now                = System.nanoTime();
     long elapsedNanos       = now - this.followUpNanoTime;
-    long elapsedMillis      = elapsedNanos / 1000000L;
+    long elapsedMillis      = elapsedNanos / ONE_MILLION;
 
     // check the timestamp
     return (elapsedMillis >= (this.getFollowUpDelay()/2));
@@ -1832,23 +1897,22 @@ public abstract class AbstractSchedulingService implements SchedulingService {
         try {
           do {
             if (count > 0) {
-              System.err.println(
-                  "****** STILL WAITING ON TASK HANDLER READINESS");
+              logInfo("****** STILL WAITING ON TASK HANDLER READINESS");
             }
             count++;
             ready = taskHandler.waitUntilReady(READY_TIMEOUT);
           } while (FALSE.equals(ready));
 
         } catch (InterruptedException e) {
-          System.err.println(
-              "****** INTERRUPTED WHILE WAITING ON TASK HANDLER READINESS");
+          logWarning("****** INTERRUPTED WHILE WAITING ON TASK HANDLER "
+                  + "READINESS");
           e.printStackTrace();
           return;
         }
 
         // check if ready state indicates a failure
         if (ready == null) {
-          System.err.println(
+          logWarning(
               "****** TASK HANDLER HAS INDICATED A FAILURE PREVENTING "
                   + "READINESS (CHECK LOGS)");
           return;
@@ -1856,7 +1920,7 @@ public abstract class AbstractSchedulingService implements SchedulingService {
 
         // check if ready state is false (should not get here)
         if (FALSE.equals(ready)) {
-          System.err.println(
+          logWarning(
               "****** TASK HANDLER NEVER BECAME READY TO HANDLE TASKS");
           return;
         }
@@ -2023,13 +2087,11 @@ public abstract class AbstractSchedulingService implements SchedulingService {
 
     try {
       taskResult = result.getValue();
+
     } catch (Exception cannotHappen) {
       // exceptions should be logged and consumed during processing and used
       // to determine the disposability of the message/batch.
-      System.err.println();
-      System.err.println("==================================================");
-      System.err.println("UNEXPECTED EXCEPTION: ");
-      cannotHappen.printStackTrace();
+      logError(cannotHappen, "UNEXPECTED EXCEPTION");
       throw new IllegalStateException(cannotHappen);
     }
 
@@ -2063,10 +2125,8 @@ public abstract class AbstractSchedulingService implements SchedulingService {
    */
   protected void recordStatistics(ScheduledTask scheduledTask, Timers timers) {
     if (scheduledTask.isSuccessful() == null) {
-      System.err.println();
-      System.err.println("*********************************");
-      System.err.println("Statistics recorded for incomplete task: "
-                             + scheduledTask);
+      logWarning("Statistics recorded for incomplete task: ",
+                 scheduledTask);
       return;
     }
     synchronized (this.getStatisticsMonitor()) {
@@ -2157,10 +2217,8 @@ public abstract class AbstractSchedulingService implements SchedulingService {
               this.taskFailureCount++;
               break;
             default:
-              System.err.println();
-              System.err.println("*******************************************");
-              System.err.println("UNEXPECTED POST-COMPLETION TASK STATE: " + task.getState());
-              System.err.println(task);
+              logWarning("UNEXPECTED POST-COMPLETION TASK STATE: "
+                             + task.getState(), task);
           }
 
           long taskTime = task.getRoundTripTime();
@@ -2784,10 +2842,6 @@ public abstract class AbstractSchedulingService implements SchedulingService {
       }
     }
   }
-
-  /**
-   *
-   */
 
   /**
    * The average time in milliseconds that non-follow-up tasks have taken from

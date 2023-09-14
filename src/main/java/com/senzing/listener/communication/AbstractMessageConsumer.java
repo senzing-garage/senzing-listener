@@ -7,6 +7,7 @@ import com.senzing.listener.service.locking.LockingService;
 import com.senzing.listener.service.locking.ProcessScopeLockingService;
 import com.senzing.util.AsyncWorkerPool;
 import com.senzing.util.JsonUtilities;
+import com.senzing.util.LoggingUtilities;
 import com.senzing.util.Timers;
 
 import javax.json.JsonArray;
@@ -20,6 +21,7 @@ import static com.senzing.util.JsonUtilities.toJsonText;
 import static com.senzing.listener.communication.MessageConsumer.State.*;
 import static com.senzing.util.AsyncWorkerPool.*;
 import static com.senzing.listener.communication.AbstractMessageConsumer.Stat.*;
+import static com.senzing.util.LoggingUtilities.*;
 
 /**
  * Base class for {@link MessageConsumer} implementations.
@@ -963,6 +965,8 @@ public abstract class AbstractMessageConsumer<M> implements MessageConsumer
       // get the message text and ensure it is non-empty and non-null
       String messageText = this.extractMessageBody(message);
 
+      logDebug("RECEIVED MESSAGE: ", messageText);
+
       if (messageText == null) return;
       messageText = messageText.trim();
       if (messageText.length() == 0) return;
@@ -976,9 +980,7 @@ public abstract class AbstractMessageConsumer<M> implements MessageConsumer
         infoMessages = batch.getInfoMessages();
 
       } catch (Exception e) {
-        e.printStackTrace();
-        System.err.println("Ignoring unrecognized message body:");
-        System.err.println(messageText);
+        logWarning(e, "Ignoring unrecognized message body:", messageText);
         return;
       }
 
@@ -1323,10 +1325,7 @@ public abstract class AbstractMessageConsumer<M> implements MessageConsumer
     } catch (Exception cannotHappen) {
       // exceptions should be logged and consumed during processing and used
       // to determine the disposability of the message/batch.
-      System.err.println();
-      System.err.println("==================================================");
-      System.err.println("UNEXPECTED EXCEPTION: ");
-      cannotHappen.printStackTrace();
+      logError(cannotHappen, "UNEXPECTED EXCEPTION: ");
       throw new IllegalStateException(cannotHappen);
     }
     InfoMessage<M>  message = processResult.getInfoMessage();

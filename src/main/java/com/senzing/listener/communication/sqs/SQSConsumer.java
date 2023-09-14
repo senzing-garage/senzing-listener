@@ -14,7 +14,7 @@ import software.amazon.awssdk.services.sqs.model.Message;
 import software.amazon.awssdk.services.sqs.model.DeleteMessageRequest;
 import software.amazon.awssdk.services.sqs.model.ReceiveMessageRequest;
 import software.amazon.awssdk.services.sqs.model.ReceiveMessageResponse;
-
+import static com.senzing.util.LoggingUtilities.*;
 import static com.senzing.listener.communication.MessageConsumer.State.*;
 
 /**
@@ -231,20 +231,15 @@ public class SQSConsumer extends AbstractMessageConsumer<Message> {
                                   ReceiveMessageResponse  response,
                                   Exception               failure)
   {
-    System.err.println();
-    System.err.println("*****************************");
-    System.err.println("FAILURE DETECTED: "
-                           + failureCount + " consecutive failure(s)");
-    if (response != null) {
-      System.err.println("Received SQS HTTP error response code: "
-                             + response.sdkHttpResponse().statusCode()
-                             + " / " + response.sdkHttpResponse().statusText());
-    }
-    System.err.println("SQS URL: " + this.getSqsUrl());
-    System.err.println();
-    if (failure != null) {
-      failure.printStackTrace();
-    }
+    logWarning(failure,
+               "FAILURE DETECTED: " + failureCount
+                   + " consecutive failure(s)",
+               ((response != null)
+                   ? ("Received SQS HTTP error response code: "
+                   + response.sdkHttpResponse().statusCode()
+                   + " / " + response.sdkHttpResponse().statusText())
+                   : "*** No HTTP Response ***"),
+               "SQS URL: " + this.getSqsUrl());
 
     // check if we have exceeded the maximum failure count
     if (failureCount > this.getMaximumRetries()) {

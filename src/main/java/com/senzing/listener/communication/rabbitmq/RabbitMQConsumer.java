@@ -16,7 +16,7 @@ import com.senzing.listener.communication.AbstractMessageConsumer;
 import com.senzing.listener.communication.exception.MessageConsumerException;
 import com.senzing.listener.communication.exception.MessageConsumerSetupException;
 import com.senzing.listener.service.MessageProcessor;
-
+import static com.senzing.util.LoggingUtilities.*;
 import static com.senzing.io.IOUtilities.UTF_8;
 
 /**
@@ -265,11 +265,10 @@ public class RabbitMQConsumer extends AbstractMessageConsumer<Delivery> {
   protected void disposeMessage(Delivery message) {
     try {
       this.channel.basicAck(message.getEnvelope().getDeliveryTag(), MULTI_ACK);
+
     } catch (IOException e) {
-      System.err.println();
-      System.err.println("***************************************************");
-      System.err.println("Ignoring exception while acknowledging message:");
-      e.printStackTrace();
+      logWarning(e, "Ignoring exception while acknowledging message:",
+                 message);
     }
   }
 
@@ -280,11 +279,7 @@ public class RabbitMQConsumer extends AbstractMessageConsumer<Delivery> {
         this.channel.basicCancel(this.consumerTag);
 
       } catch (IOException e) {
-        System.err.println();
-        System.err.println("***************************************************");
-        System.err.println("Ignoring exception while destroying:");
-        e.printStackTrace();
-
+        logWarning(e, "Ignoring exception while destroying:");
       } finally {
         this.consumerTag = null;
       }

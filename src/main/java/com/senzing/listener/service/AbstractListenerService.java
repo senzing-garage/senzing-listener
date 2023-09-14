@@ -23,6 +23,7 @@ import static com.senzing.listener.service.ListenerService.State.*;
 import static com.senzing.listener.service.ServiceUtilities.*;
 import static com.senzing.listener.service.model.SzInfoMessage.*;
 import static java.lang.Boolean.*;
+import static com.senzing.util.LoggingUtilities.*;
 
 /**
  * Provides a base class for {@link ListenerService} implementations.
@@ -550,10 +551,13 @@ public abstract class AbstractListenerService implements ListenerService
       scheduler.commit();
 
       // wait for the tasks to be completed
+      logDebug("AWAITING COMPLETION ON TASK GROUP: " + taskGroup.getTaskCount());
       taskGroup.awaitCompletion();
+      logDebug("COMPLETED TASK GROUP: " + taskGroup.getTaskCount());
 
       // determine the state of the group
       TaskGroup.State groupState = taskGroup.getState();
+      logDebug("COMPLETED TASK GROUP STATE: " + groupState);
       if (groupState == TaskGroup.State.SUCCESSFUL) return;
 
       // if we get here then we had a failure

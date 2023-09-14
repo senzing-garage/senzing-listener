@@ -6,6 +6,7 @@ import java.sql.*;
 import java.util.*;
 
 import static com.senzing.sql.SQLUtilities.*;
+import static com.senzing.util.LoggingUtilities.*;
 
 /**
  * Implements {@link SchedulingService} using a SQLite database to handle
@@ -101,9 +102,7 @@ public class SQLiteSchedulingService extends AbstractSQLSchedulingService {
         try {
           stmt.execute(sql);
         } catch (SQLException e) {
-          System.err.println();
-          System.err.println(sql);
-          e.printStackTrace();
+          logError(e, "SQL Error Encountered: ", sql);
           throw e;
         }
       }

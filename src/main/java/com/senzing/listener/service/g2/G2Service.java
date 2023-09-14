@@ -20,10 +20,10 @@ import com.senzing.util.WorkerThreadPool;
 
 import static com.senzing.g2.engine.G2Engine.*;
 import static com.senzing.io.IOUtilities.*;
-import static com.senzing.util.LoggingUtilities.formatError;
 import static com.senzing.listener.service.g2.G2Service.State.*;
 import static com.senzing.listener.service.ServiceUtilities.*;
 import static com.senzing.util.JsonUtilities.*;
+import static com.senzing.util.LoggingUtilities.*;
 
 /**
  * This class handles communication with G2.  It sets up an instance of G2 and
@@ -268,7 +268,7 @@ public class G2Service {
       if (result != 0) {
         String errorMsg = "Failed to initialize G2ConfigMgr: "+ formatError(
             "G2ConfigMgr.init", this.configMgrApi);
-        System.err.println(errorMsg);
+        logError(errorMsg);
         throw new ServiceSetupException(errorMsg);
       }
 
@@ -278,7 +278,7 @@ public class G2Service {
       if (result != 0) {
         String errorMsg = "Failed to initialize G2Engine: " + formatError(
             "G2Engine.init", this.engineApi);
-        System.err.println(errorMsg);
+        logError(errorMsg);
         throw new ServiceSetupException(errorMsg);
       }
 
@@ -595,7 +595,7 @@ public class G2Service {
         if (result != 0) {
           String errorMsg = "G2Engine failed to export configuration: "
               + formatError("G2Engine.exportConfig", this.engineApi);
-          System.err.println(errorMsg);
+          logError(errorMsg);
           throw new ServiceExecutionException(errorMsg);
         }
         return response.toString();
@@ -822,7 +822,7 @@ public class G2Service {
           String errorMsg = "Failed to reinitialize with config ID ("
               + defaultConfigId + "): "
               + formatError("G2Engine.reinit", this.engineApi);
-          System.err.println(errorMsg);
+          logError(errorMsg);
           return null;
         }
 
@@ -859,7 +859,7 @@ public class G2Service {
     if (returnCode != 0) {
       String errorMsg = "Failed to get active config ID: " + formatError(
           "G2Engine.getActiveConfigID", this.engineApi);
-      System.err.println(errorMsg);
+      logError(errorMsg);
       throw new IllegalStateException(errorMsg);
     }
 
@@ -875,7 +875,7 @@ public class G2Service {
       if (returnCode != 0) {
         String errorMsg = "Failed to get default config ID: " + formatError(
             "G2ConfigMgr.getDefaultConfigID", this.configMgrApi);
-        System.err.println(errorMsg);
+        logError(errorMsg);
         throw new IllegalStateException(errorMsg);
       }
     }
@@ -903,7 +903,7 @@ public class G2Service {
       if (returnCode != 0) {
         String errorMsg = "G2Engine failed to export configuration: "
             + formatError("G2Engine.exportConfig", this.engineApi);
-        System.err.println(errorMsg);
+        logError(errorMsg);
         throw new IllegalStateException(errorMsg);
       }
 
@@ -963,8 +963,7 @@ public class G2Service {
 
       String ac = attrCodeMap.get(attrCode);
       if (ac != null && !ac.equals(attrClass)) {
-        System.err.println(
-            "*** WARNING : Multiple attribute classes for ATTR_CODE: "
+        logWarning("Multiple attribute classes for ATTR_CODE: "
                 + attrCode + " ( " + ac + " / " + attrClass + " )");
       } else {
         attrCodeMap.put(attrCode, attrClass);
@@ -972,8 +971,7 @@ public class G2Service {
 
       ac = ftypeCodeMap.get(ftypeCode);
       if (ac != null && !ac.equals(attrClass)) {
-        System.err.println(
-            "*** WARNING : Multiple attribute classes for FTYPE_CODE: "
+        logWarning("Multiple attribute classes for FTYPE_CODE: "
                 + ftypeCode + " ( " + ac + " / " + attrClass + " )");
       } else {
         ftypeCodeMap.put(ftypeCode, attrClass);
@@ -1017,7 +1015,7 @@ public class G2Service {
       // throw an exception otherwise
       String errorMsg = "G2Engine failed to retrieve an entity with error: "
           + formatError("G2Engine.getEntityByEntityID", this.engineApi);
-      System.err.println(errorMsg);
+      logError(errorMsg);
       throw new ServiceExecutionException(errorMsg);
     }
 
@@ -1051,7 +1049,7 @@ public class G2Service {
     if (result != 0) {
       String errorMsg = "G2Engine failed to search entities with error: "
           + formatError("G2Engine.searchByAttributes", this.engineApi);
-      System.err.println(errorMsg);
+      logError(errorMsg);
       throw new ServiceExecutionException(errorMsg);
     }
 
@@ -1100,7 +1098,7 @@ public class G2Service {
       // throw an exception for other errors
       String errorMsg = "G2Engine failed to retrieve an entity with error: "
           + formatError("G2Engine.getEntityByRecordID", this.engineApi);
-      System.err.println(errorMsg);
+      logError(errorMsg);
       throw new ServiceExecutionException(errorMsg);
     }
 
@@ -1153,7 +1151,7 @@ public class G2Service {
       // throw an exception otherwise
       String errorMsg = "G2Engine failed to find entity path with error: "
           + formatError("G2Engine.findPathByEntityId", this.engineApi);
-      System.err.println(errorMsg);
+      logError(errorMsg);
       throw new ServiceExecutionException(errorMsg);
     }
 
