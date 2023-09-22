@@ -227,7 +227,9 @@ public abstract class AbstractListenerService implements ListenerService
   }
 
   /**
-   *
+   * Implemented to return the statistics associated with this instance.
+   * 
+   * {@inheritDoc}
    */
   @Override
   public synchronized Map<Statistic, Number> getStatistics() {

@@ -156,6 +156,16 @@ public class G2Service {
   private WorkerThreadPool workerPool = null;
 
   /**
+   * The Senzing G2 config.
+   */
+  private JsonObject g2Config = null;
+
+  /**
+   * The Senzing G2 config JSON text.
+   */
+  private String g2ConfigJson = null;
+
+  /**
    * Default constructor.
    */
   public G2Service() {
@@ -189,6 +199,28 @@ public class G2Service {
     } finally {
       this.monitor.writeLock().unlock();
     }
+  }
+
+  /**
+   * Gets the {@link JsonObject} describing the Senzing G2 config
+   * obtained during the {@link #init(JsonObject)} call.  This returns
+   * <code>null</code> if this instance has not yet been initialized.
+   * 
+   * @return The {@link JsonObject} describing the Senzing G2 config for this instance.
+   */
+  protected JsonObject getG2Config() {
+    return this.g2Config;
+  }
+
+  /**
+   * Gets the JSON text describing the Senzing G2 config
+   * obtained during the {@link #init(JsonObject)} call.  This returns
+   * <code>null</code> if this instance has not yet been initialized.
+   * 
+   * @return The JSON text describing the Senzing G2 config for this instance.
+   */
+  protected String getG2ConfigJson() {
+    return this.g2ConfigJson;
   }
 
   /**
@@ -243,6 +275,10 @@ public class G2Service {
                   + initConfigValue.getValueType() + ": "
                   + toJsonText(initConfigValue));
       }
+
+      // set the private variables
+      this.g2Config     = JsonUtilities.parseJsonObject(initConfig);
+      this.g2ConfigJson = initConfig; 
 
       // get the parameters
       boolean verbose = getConfigBoolean(config, G2_VERBOSE_KEY, Boolean.FALSE);
