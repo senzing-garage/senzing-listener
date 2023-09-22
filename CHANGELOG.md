@@ -16,6 +16,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Adds `com.senzing.listener.model` with `SzInfoMessage` and subordinate classes for parsing INFO messges
 - Adds `com.senzing.listener.service.scheduling` with `SchedulingService` and implementations
 
+## [0.3.2] - 2023-04-04
+
+### Changed in 0.3.2
+
+- In `Dockerfile`, updated FROM instruction to `senzing/senzingapi-runtime:3.5.0`
+
+## [0.3.1] - 2023-03-08
+
+### Changed in 0.3.1
+
+- Added initWithG2Config method for initializing G2 with json configuration string instead of path to the G2 ini file
+
+## [0.3.0] - 2022-09-29
+
+### Changed in 0.3.0
+
+- In `Dockerfile`, updated FROM instruction to `senzing/senzingapi-runtime:3.3.0`
+
+## [0.2.0] - 2022-08-26
+
+### Changed in 0.2.0
+
+- In `Dockerfile`, bump from `senzing/senzingapi-runtime:3.1.0` to `senzing/senzingapi-runtime:3.2.0`
+
+## [0.1.0] - 2022-05-11
+
+### Changed in 0.2.0
+
+- ???
+
 ## [0.0.4] - 2021-10-20
 
 ### Changed in 0.0.4
@@ -35,7 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Prep for central repo
 - Added Javadoc
-- Refactored constants for initialization parameters to make them specific to 
+- Refactored constants for initialization parameters to make them specific to
   the messaging vendor
 - Removed some unused classes
 - Changed `cleanUp()` functions to `destroy()`
@@ -45,3 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.0.1] - 2021-02-17
 
 ### Initial pre-release
+
+- This is a retroactive release of version 0.0.1, on which several other git projects may be dependent.
+- This release maintains the com.senzing.listener.senzing package naming as well as the com.senzing.listener.senzing.data package.
+- These things were cleaned up in version 0.0.2 but no prior release was made for anything dependent on them.
