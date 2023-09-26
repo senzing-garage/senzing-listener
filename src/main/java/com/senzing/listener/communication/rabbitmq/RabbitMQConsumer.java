@@ -1,76 +1,115 @@
 package com.senzing.listener.communication.rabbitmq;
 
 import java.io.IOException;
-import java.io.StringReader;
+import java.io.UnsupportedEncodingException;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
-import javax.json.Json;
 import javax.json.JsonObject;
-import javax.json.JsonReader;
 
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DeliverCallback;
-import com.senzing.listener.communication.MessageConsumer;
+import com.rabbitmq.client.Delivery;
+import com.senzing.listener.communication.AbstractMessageConsumer;
+import com.senzing.listener.communication.exception.MessageConsumerException;
 import com.senzing.listener.communication.exception.MessageConsumerSetupException;
-import com.senzing.listener.service.ListenerService;
-import com.senzing.listener.service.exception.ServiceExecutionException;
+import com.senzing.listener.service.MessageProcessor;
+import static com.senzing.util.LoggingUtilities.*;
+import static com.senzing.io.IOUtilities.UTF_8;
 
 /**
- * A consumer for RabbitMQ.
+ * A consumer for RabbitMQ.  The initialization parameters include:
+ * <ul>
+ *   <li>{@link #MQ_HOST_KEY} (required)</li>
+ *   <li>{@link #MQ_PORT_KEY} (optional, default port used if not specified)</li>
+ *   <li>{@link #MQ_VIRTUAL_HOST_KEY} (optional)</li>
+ *   <li>{@link #MQ_QUEUE_KEY} (required)</li>
+ *   <li>{@link #MQ_USER_KEY} (optional, no authentication if not specified)</li>
+ *   <li>{@link #MQ_PASSWORD_KEY} (required if {@link #MQ_USER_KEY} is specified)</li>
+ * </ul>
  */
-public class RabbitMQConsumer implements MessageConsumer {
+public class RabbitMQConsumer extends AbstractMessageConsumer<Delivery> {
+  /**
+   * Constant for the "auto ack" parameter.
+   */
+  private static final boolean AUTO_ACK = false;
+
+  /**
+   * Constant for "ack multiple" parameter.
+   */
+  private static final boolean MULTI_ACK = false;
+
   /**
    * The initialization parameter for the RabbitMQ host.
    */
-  public static final String MQ_HOST = "mqHost";
+  public static final String MQ_HOST_KEY = "mqHost";
+
+  /**
+   * The initialization parameter for the RabbitMQ port.
+   */
+  public static final String MQ_PORT_KEY = "mqPort";
 
   /**
    * The initialization parameter for the RabbitMQ user name.
    */
-  public static final String MQ_USER = "mqUser";
+  public static final String MQ_USER_KEY = "mqUser";
 
   /**
    * The initialization parameter for the RabbitMQ password.
    */
-  public static final String MQ_PASSWORD = "mqPassword";
+  public static final String MQ_PASSWORD_KEY = "mqPassword";
 
   /**
    * The initialization parameter for the RabbitMQ queue name.
    */
-  public static final String MQ_QUEUE = "mqQueue";
+  public static final String MQ_QUEUE_KEY = "mqQueue";
+
+  /**
+   * The initialization parameter for the RabbitMQ virtual host.
+   */
+  public static final String MQ_VIRTUAL_HOST_KEY = "mqVirtualHost";
 
   /**
    * The name of the queue.
    */
-  private String queueName;
+  private String queueName = null;
 
   /**
    * The host or IP address for the queue.
    */
-  private String queueHost;
+  private String queueHost = null;
+
+  /**
+   * The port to use for connecting to RabbitMQ if not the default.
+   */
+  private Integer queuePort = null;
+
+  /**
+   * The optional virtual host.
+   */
+  private String virtualHost = null;
 
   /**
    * The user name for authenticating with the queue host.
    */
-  private String userName;
+  private String userName = null;
 
   /**
    * The password for the authenticating with the queue host.
    */
-  private String password;
+  private String password = null;
 
   /**
-   * The {@link ListenerService} for receiving messages.
+   * The RabbitMQ {@link Channel} to use.
    */
-  private ListenerService service;
+  private Channel channel = null;
 
   /**
-   * Constant for UTF-8 encoding.
+   * The consumer tag when consuming, or <code>null</code> when not.
    */
-  private static final String UTF8_ENCODING = "UTF-8";
+  private String consumerTag = null;
 
   /**
    * Generates a Rabbit MQ consumer.
@@ -84,7 +123,7 @@ public class RabbitMQConsumer implements MessageConsumer {
   /**
    * Private default constructor.
    */
-  private RabbitMQConsumer() {
+  public RabbitMQConsumer() {
     // do nothing
   }
 
@@ -97,6 +136,8 @@ public class RabbitMQConsumer implements MessageConsumer {
    * {
    *   "mqQueue": "&lt;queue name&gt;",              # required value
    *   "mqHost": "&lt;host name or IP address&gt;",  # required value
+   *   "mqPort:L "&lt;port&gt;",                     # not required
+   *   "mqVirtualHost": "&lt;virtual host name&gt;", # not required
    *   "mqUser": "&lt;user name&gt;",                # not required
    *   "mqPassword": "&lt;password&gt;"              # not required
    * }
@@ -106,15 +147,52 @@ public class RabbitMQConsumer implements MessageConsumer {
    *
    * @throws MessageConsumerSetupException If a failure occurs.
    */
-  public void init(String config) throws MessageConsumerSetupException {
+  @Override
+  protected void doInit(JsonObject config) throws MessageConsumerSetupException
+  {
     try {
-      JsonReader reader = Json.createReader(new StringReader(config));
-      JsonObject configObject = reader.readObject();
-      queueName = getConfigValue(configObject, MQ_QUEUE, true);
-      queueHost = getConfigValue(configObject, MQ_HOST, true);
-      userName = getConfigValue(configObject, MQ_USER, false);
-      password = getConfigValue(configObject, MQ_PASSWORD, false);
-    } catch (RuntimeException e) {
+      // get the queue name
+      this.queueName = getConfigString(config, MQ_QUEUE_KEY, true);
+
+      // get the queue host
+      this.queueHost = getConfigString(config, MQ_HOST_KEY, true);
+
+      // get the queue port
+      this.queuePort = getConfigInteger(config,
+                                        MQ_PORT_KEY,
+                                        false,
+                                        1);
+
+      // get the virtual host
+      this.virtualHost = getConfigString(config,
+                                         MQ_VIRTUAL_HOST_KEY,
+                                         false);
+
+      // get the user name (optional)
+      this.userName = getConfigString(config, MQ_USER_KEY, false);
+      if (this.userName != null && this.userName.trim().length() == 0) {
+        this.userName = null;
+      }
+
+      // get the password (optional)
+      this.password = getConfigString(config, MQ_PASSWORD_KEY, false);
+      if (this.password != null && this.password.trim().length() == 0) {
+        this.password = null;
+      }
+
+      // check if the and user name and password are not consistent
+      if ((this.userName != null && this.password == null)
+          || (this.userName == null && this.password != null))
+      {
+        throw new MessageConsumerSetupException(
+            "Either both or neither of the " + MQ_USER_KEY + " and "
+            + MQ_PASSWORD_KEY + " configuration parameters must be provided.");
+      }
+
+    } catch (MessageConsumerSetupException e) {
+      throw e;
+
+    } catch (Exception e) {
       throw new MessageConsumerSetupException(e);
     }
   }
@@ -123,54 +201,111 @@ public class RabbitMQConsumer implements MessageConsumer {
    * Sets up a RabbitMQ consumer and then receives messages from RabbidMQ and
    * feeds to service.
    * 
-   * @param service Processes messages
+   * @param processor Processes messages
    * 
-   * @throws MessageConsumerSetupException If a failure occurs.
+   * @throws MessageConsumerException If a failure occurs.
    */
   @Override
-  public void consume(ListenerService service)
-      throws MessageConsumerSetupException
+  protected void doConsume(MessageProcessor processor)
+      throws MessageConsumerException
   {
-    this.service = service;
-
     try {
+      // construct the factory
       ConnectionFactory factory = new ConnectionFactory();
-      factory.setHost(queueHost);
-      if (userName != null && !userName.isEmpty()) {
-        factory.setUsername(userName);
-        factory.setPassword(password);
+
+      // set the host
+      factory.setHost(this.queueHost);
+
+      // optionally set the port, otherwise uses RabbitMQ default
+      if (this.queuePort != null) {
+        factory.setPort(this.queuePort);
       }
+
+      // optionally set the virtual host
+      if (this.virtualHost != null) {
+        factory.setVirtualHost(this.virtualHost);
+      }
+
+      // if we have credentials then set them
+      if (this.userName != null && !this.userName.isEmpty()) {
+        factory.setUsername(this.userName);
+        factory.setPassword(this.password);
+      }
+
       Connection connection = factory.newConnection();
-      Channel channel = getChannel(connection, queueName);
+      this.channel = this.getChannel(connection, queueName);
 
       DeliverCallback deliverCallback = (consumerTag, delivery) -> {
-        String message = new String(delivery.getBody(), UTF8_ENCODING);
-        try {
-          processMessage(message);
-        } finally {
-          boolean ackMultiple = false;
-          channel.basicAck(delivery.getEnvelope().getDeliveryTag(), ackMultiple);
-        }
+        // enqueue the next message for processing -- this call may wait
+        // for enough room in the queue for the messages to be enqueued
+        this.enqueueMessages(processor, delivery);
       };
 
-      boolean autoAck = false;
-      channel.basicConsume(queueName, autoAck, deliverCallback, consumerTag -> {
-      });
+      // this call will run in the background until basicCancel() is called
+      this.consumerTag = channel.basicConsume(
+          queueName, AUTO_ACK, deliverCallback, consumerTag -> { });
 
     } catch (IOException | TimeoutException e) {
       throw new MessageConsumerSetupException(e);
     }
+  }
 
+  @Override
+  protected String extractMessageBody(Delivery message) {
+    try {
+      return new String(message.getBody(), UTF_8);
+
+    } catch (UnsupportedEncodingException cannotHappen) {
+      throw new IllegalStateException(
+          "UTF-8 encoding should always be supported, but is not.");
+    }
+  }
+
+  @Override
+  protected void disposeMessage(Delivery message) {
+    try {
+      this.channel.basicAck(message.getEnvelope().getDeliveryTag(), MULTI_ACK);
+
+    } catch (IOException e) {
+      logWarning(e, "Ignoring exception while acknowledging message:",
+                 message);
+    }
+  }
+
+  @Override
+  protected void doDestroy() {
+    if (this.channel != null && this.consumerTag != null) {
+      try {
+        this.channel.basicCancel(this.consumerTag);
+
+      } catch (IOException e) {
+        logWarning(e, "Ignoring exception while destroying:");
+      } finally {
+        this.consumerTag = null;
+      }
+    }
   }
 
   private Channel getChannel(Connection connection, String queueName)
       throws IOException
   {
     try {
-      return declareQueue(connection, queueName, true, false, false, null);
+      return this.declareQueue(connection,
+                               queueName,
+                               true,
+                               false,
+                               false,
+                               null);
+
     } catch (IOException e) {
-      // Possibly the queue is already declared and as non-durable. Retry with durable = false.
-      return declareQueue(connection, queueName, false, false, false, null);
+      // Possibly the queue is already declared and as non-durable.
+      // Retry with durable = false.
+      return declareQueue(connection,
+                          queueName,
+                          false,
+                          false,
+                          false,
+                          null);
     }
   }
 
@@ -185,28 +320,5 @@ public class RabbitMQConsumer implements MessageConsumer {
     Channel channel = connection.createChannel();
     channel.queueDeclare(queueName, durable, exclusive, autoDelete, arguments);
     return channel;
-  }
-
-  private void processMessage(String message) {
-    try {
-      service.process(message);
-    } catch (ServiceExecutionException e) {
-      e.printStackTrace();
-    }
-  }
-
-  private String getConfigValue(JsonObject  configObject,
-                                String      key,
-                                boolean     required)
-      throws MessageConsumerSetupException
-  {
-    String configValue = configObject.getString(key, null);
-    if (required && (configValue == null || configValue.isEmpty())) {
-      StringBuilder message
-          = new StringBuilder("Following configuration parameter missing: ")
-          .append(key);
-      throw new MessageConsumerSetupException(message.toString());
-    }
-    return configValue;
   }
 }

@@ -1,14 +1,14 @@
 package com.senzing.listener.communication.exception;
 
 /**
- * Exception thrown when message consumer fails initialization.
+ * Exception thrown when message consumer encounters a failure.
  */
-public class MessageConsumerSetupException extends MessageConsumerException {
+public class MessageConsumerException extends Exception {
   /**
    * Constructs with the specified message.
    * @param message The message with which to construct.
    */
-  public MessageConsumerSetupException(String message) {
+  public MessageConsumerException(String message) {
     super(message);
   }
 
@@ -19,7 +19,7 @@ public class MessageConsumerSetupException extends MessageConsumerException {
    * @param cause The {@link Exception} descrbing the underlying failure
    *              that occurred.
    */
-  public MessageConsumerSetupException(Exception cause) {
+  public MessageConsumerException(Exception cause) {
     super(cause);
   }
 
@@ -31,8 +31,8 @@ public class MessageConsumerSetupException extends MessageConsumerException {
    * @param cause The {@link Exception} descrbing the underlying failure
    *              that occurred.
    */
-  public MessageConsumerSetupException(String     message,
-                                       Exception  cause)
+  public MessageConsumerException(String     message,
+                                  Exception  cause)
   {
     super(message, cause);
   }
