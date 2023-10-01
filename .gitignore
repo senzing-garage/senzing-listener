@@ -1,8 +1,7 @@
 .DS_Store
 /target/
-.project
 .classpath
 /.settings/
 .idea
 bin/
-.project
+.history

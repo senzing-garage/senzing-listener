@@ -3,7 +3,7 @@
   <groupId>com.senzing</groupId>
   <artifactId>senzing-listener</artifactId>
   <packaging>jar</packaging>
-  <version>0.5.0</version>
+  <version>0.5.1</version>
   <name>Senzing Listener Framework</name>
   <description>Framework for creating applications receiving messages from G2 through queue</description>
   <url>http://github.com/Senzing/senzing-listener</url>
