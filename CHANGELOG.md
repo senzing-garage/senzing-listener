@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2023-10-13
+
+### Changed in 0.5.2
+
+- Changed dependency on `senzing-commons` to a minimum version of `3.1.2` to address 
+  bug related to setting SQLite timestamp values.
+- Streamlined message consumptio throttling in `AbstractMessageConsumer` to wait until 
+  pending count falls below half of the maximum value.
+- Fixed `RabbitMQMessageConsumer` to override throttling by doing a `basicCancel()` and
+  then do a `basicConsume()` when pending message count drops.  This prevents RabbitMQ
+  from timing out the connection (especially with SQLite since we only have one database
+  connection to work with)
+- Updated third-party dependencies to newer versions.
+
 ## [0.5.1] - 2023-09-30
 
 ### Changed in 0.5.1

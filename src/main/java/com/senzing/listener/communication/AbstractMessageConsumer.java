@@ -987,38 +987,36 @@ public abstract class AbstractMessageConsumer<M> implements MessageConsumer
       // add to the queue
       synchronized (this) {
         int totalCount = this.pendingMessages.size() + infoMessages.size();
-        if (totalCount < this.getMaximumPendingCount()) {
-          // add all the messages and notify
-          this.pendingMessages.addAll(infoMessages);
-          this.notifyAll();
-
-        } else {
-          this.timerStart(throttleEnqueue);
-          // loop through the messages and add them when we can
-          for (InfoMessage<M> msg : infoMessages) {
-            // wait until we can add at least one message to the queue
-            while (this.pendingMessages.size() >= this.getMaximumPendingCount()) {
-              try {
-                long timeout = this.getTimeout();
-                this.timerStart(throttleWait);
-                this.wait(timeout); // wait at most the timeout milliseconds
-                this.timerPause(throttleWait);
-
-              } catch (InterruptedException ignore) {
-                // ignore the interruption
-              }
-            }
-
-            // once we get here then we can add the message
-            this.pendingMessages.add(msg);
-            this.notifyAll(); // notify once we are done or go back to waiting
-          }
-          this.timerPause(throttleEnqueue);
+        this.pendingMessages.addAll(infoMessages);
+        this.notifyAll();
+        if (totalCount >= this.getMaximumPendingCount()) {
+          this.throttleConsumption();
         }
       }
     } finally {
       this.timerPause(enqueue);
     }
+  }
+
+  /**
+   * Throttles comsumption until the number of pending messages is less than
+   * half the maximum pending count.
+   */
+  protected synchronized void throttleConsumption() {
+    this.timerStart(throttleEnqueue);
+    // wait until we work down to half the maximum pending count
+    while (this.pendingMessages.size() >= (this.getMaximumPendingCount()/2)) {
+      try {
+        long timeout = this.getTimeout();
+        this.timerStart(throttleWait);
+        this.wait(timeout); // wait at most the timeout milliseconds
+        this.timerPause(throttleWait);
+
+      } catch (InterruptedException ignore) {
+        // ignore the interruption
+      }
+    }
+    this.timerPause(throttleEnqueue);
   }
 
   /**
