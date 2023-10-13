@@ -112,6 +112,11 @@ public class RabbitMQConsumer extends AbstractMessageConsumer<Delivery> {
   private String consumerTag = null;
 
   /**
+   * The {@link MessageProcessor} being used by this instance for consumption.
+   */
+  private MessageProcessor messageProcessor = null;
+
+  /**
    * Generates a Rabbit MQ consumer.
    * 
    * @return The created {@link RabbitMQConsumer}.
@@ -234,6 +239,8 @@ public class RabbitMQConsumer extends AbstractMessageConsumer<Delivery> {
 
       Connection connection = factory.newConnection();
       this.channel = this.getChannel(connection, queueName);
+      
+      this.messageProcessor = processor;
 
       DeliverCallback deliverCallback = (consumerTag, delivery) -> {
         // enqueue the next message for processing -- this call may wait
@@ -242,7 +249,7 @@ public class RabbitMQConsumer extends AbstractMessageConsumer<Delivery> {
       };
 
       // this call will run in the background until basicCancel() is called
-      this.consumerTag = channel.basicConsume(
+      this.consumerTag = this.channel.basicConsume(
           queueName, AUTO_ACK, deliverCallback, consumerTag -> { });
 
     } catch (IOException | TimeoutException e) {
@@ -259,6 +266,56 @@ public class RabbitMQConsumer extends AbstractMessageConsumer<Delivery> {
       throw new IllegalStateException(
           "UTF-8 encoding should always be supported, but is not.");
     }
+  }
+
+  /**
+   * <p>
+   * Override to do cancel consumption until the number of pending messages
+   * has decreased.
+   * </p>
+   * {@inheritDoc}
+   */
+  @Override
+  protected synchronized void throttleConsumption() {
+    // check if currently consuming
+    if (this.consumerTag == null) return;
+
+    // cancel consumption temporarily
+    if (this.channel != null && this.consumerTag != null) {
+      try {
+        this.channel.basicCancel(this.consumerTag);
+
+      } catch (IOException e) {
+        logWarning(e, "Ignoring exception while cancelling consumption.");
+      } finally {
+        this.consumerTag = null;
+      }
+    }
+
+    // after throttling for some time, then resume consumption
+    Thread thread = new Thread(() -> {
+      // now wait until the number of pending messages decreases
+      super.throttleConsumption();
+  
+      DeliverCallback deliverCallback = (consumerTag, delivery) -> {
+        // enqueue the next message for processing -- this call may wait
+        // for enough room in the queue for the messages to be enqueued
+        this.enqueueMessages(this.messageProcessor, delivery);
+      };
+      
+      synchronized (RabbitMQConsumer.this) {
+        try {
+        // now reinstate consumption
+        this.consumerTag = this.channel.basicConsume(
+          queueName, AUTO_ACK, deliverCallback, consumerTag -> { });
+
+        } catch (IOException e) {
+          logError(e, "Failure to resume consumption after throttling.");
+        }
+      }
+    });
+
+    thread.start();    
   }
 
   @Override
