@@ -3,7 +3,7 @@
   <groupId>com.senzing</groupId>
   <artifactId>senzing-listener</artifactId>
   <packaging>jar</packaging>
-  <version>0.5.2</version>
+  <version>0.5.3</version>
   <name>Senzing Listener Framework</name>
   <description>Framework for creating applications receiving messages from G2 through queue</description>
   <url>http://github.com/Senzing/senzing-listener</url>
@@ -59,7 +59,7 @@
       <dependency>
         <groupId>software.amazon.awssdk</groupId>
         <artifactId>bom</artifactId>
-        <version>2.20.147</version>
+        <version>2.21.40</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -79,7 +79,7 @@
     <dependency>
       <groupId>com.senzing</groupId>
       <artifactId>senzing-commons</artifactId>
-      <version>[3.1.2, 3.999.999]</version>
+      <version>[3.1.4, 3.999.999]</version>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
@@ -89,82 +89,82 @@
     <dependency>
       <groupId>com.rabbitmq</groupId>
       <artifactId>amqp-client</artifactId>
-      <version>5.19.0</version>
+      <version>5.20.0</version>
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>sqs</artifactId>
-      <version>2.20.162</version>
+      <version>2.21.40</version>
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>sts</artifactId>
-      <version>2.20.162</version>
+      <version>2.21.40</version>
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>auth</artifactId>
-      <version>2.20.162</version>
+      <version>2.21.40</version>
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>aws-query-protocol</artifactId>
-      <version>2.20.162</version>
+      <version>2.21.40</version>
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>protocol-core</artifactId>
-      <version>2.20.162</version>
+      <version>2.21.40</version>
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>sdk-core</artifactId>
-      <version>2.20.162</version>
+      <version>2.21.40</version>
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>aws-core</artifactId>
-      <version>2.20.162</version>
+      <version>2.21.40</version>
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>regions</artifactId>
-      <version>2.20.162</version>
+      <version>2.21.40</version>
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>json-utils</artifactId>
-      <version>2.20.162</version>
+      <version>2.21.40</version>
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>annotations</artifactId>
-      <version>2.20.162</version>
+      <version>2.21.40</version>
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>utils</artifactId>
-      <version>2.20.162</version>
+      <version>2.21.40</version>
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>http-client-spi</artifactId>
-      <version>2.20.162</version>
+      <version>2.21.40</version>
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>metrics-spi</artifactId>
-      <version>2.20.162</version>
+      <version>2.21.40</version>
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>endpoints-spi</artifactId>
-      <version>2.20.162</version>
+      <version>2.21.40</version>
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
       <artifactId>profiles</artifactId>
-      <version>2.20.162</version>
+      <version>2.21.40</version>
     </dependency>
     <dependency>
       <groupId>software.amazon.eventstream</groupId>
@@ -179,19 +179,19 @@
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
-      <version>5.10.0</version>
+      <version>5.10.1</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.xerial</groupId>
       <artifactId>sqlite-jdbc</artifactId>
-      <version>3.43.0.0</version>
+      <version>3.42.0.1</version>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>org.postgresql</groupId>
       <artifactId>postgresql</artifactId>
-      <version>42.6.0</version>
+      <version>42.7.1</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
