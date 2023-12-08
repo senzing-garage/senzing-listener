@@ -482,7 +482,7 @@ public abstract class AbstractMessageConsumer<M> implements MessageConsumer
    *         throttling consumption.
    */
   protected synchronized int getMaximumPendingCount() {
-    return this.concurrency * 10;
+    return this.concurrency * 1000;
   }
 
   /**
@@ -945,7 +945,7 @@ public abstract class AbstractMessageConsumer<M> implements MessageConsumer
   }
 
   /**
-   * Enqueues the one or info messages contained in the specified
+   * Enqueues the one or more info messages contained in the specified
    * framework-specific message.  If the message text is <code>null</code>
    * or empty-string then this method does nothing.  If the message text
    * contains text that cannot be parsed as JSON then the unrecognized message

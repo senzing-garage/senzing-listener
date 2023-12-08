@@ -443,7 +443,7 @@ public abstract class AbstractListenerService implements ListenerService
           this.getDefaultSchedulingServiceClassName());
 
       // get the scheduling service Class object from the class name
-      Class schedServiceClass = Class.forName(className);
+      Class<?> schedServiceClass = Class.forName(className);
 
       if (!SchedulingService.class.isAssignableFrom(schedServiceClass)) {
         throw new ServiceSetupException(

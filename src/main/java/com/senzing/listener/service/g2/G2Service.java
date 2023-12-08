@@ -262,7 +262,7 @@ public class G2Service {
       String    initConfig      = null;
       switch (initConfigValue.getValueType()) {
         case STRING:
-          initConfig = getG2IniDataAsJson(config.getString(G2_INIT_CONFIG_KEY));
+          initConfig = getG2InitDataAsJson(config.getString(G2_INIT_CONFIG_KEY));
           break;
         case OBJECT:
           initConfig = toJsonText(config.getJsonObject(G2_INIT_CONFIG_KEY));
@@ -651,7 +651,7 @@ public class G2Service {
    * @return The JSON text.
    * @throws IOException If an I/O failure occurs.
    */
-  protected static String getG2IniDataAsJson(String initConfig)
+  public static String getG2InitDataAsJson(String initConfig)
       throws IOException
   {
     String trimmed = initConfig.trim();

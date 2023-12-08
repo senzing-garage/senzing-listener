@@ -231,8 +231,11 @@ public class SQSConsumer extends AbstractMessageConsumer<Message> {
                                   ReceiveMessageResponse  response,
                                   Exception               failure)
   {
+    // get the maximum number of retries
+    int maxRetries = this.getMaximumRetries();
+    
     logWarning(failure,
-               "FAILURE DETECTED: " + failureCount
+               "FAILURE DETECTED: " + failureCount + " of " + maxRetries
                    + " consecutive failure(s)",
                ((response != null)
                    ? ("Received SQS HTTP error response code: "
@@ -242,7 +245,7 @@ public class SQSConsumer extends AbstractMessageConsumer<Message> {
                "SQS URL: " + this.getSqsUrl());
 
     // check if we have exceeded the maximum failure count
-    if (failureCount > this.getMaximumRetries()) {
+    if (failureCount > maxRetries) {
       // return true to indicate that we should abort consumption
       return true;
 
