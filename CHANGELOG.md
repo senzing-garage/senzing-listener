@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4] - 2024-01-10
+
+### Changed in 0.5.4
+
+- Updated dependency versions:
+  - Updated AWS dependencies to version `2.22.12`
+  - Updated `maven-compiler-plugin` to version `3.12.1`
+  - Updated `maven-surefire-plugin` to version `3.2.3`
+  - Updated `maven-javadoc-plugin` to version `3.6.3`
+
 ## [0.5.3] - 2023-12-07
 
 ### Changed in 0.5.3
@@ -20,12 +30,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `ConsumerType.DATABASE` enumerated constant for `SQLConsumer`.
 - Updated `MessageConsumerFactory` to support `ConsumerType.DATABASE` constant 
   and creation of `SQLConsumer` instances.
-- Updated dependency versions:
-  - Updated AWS dependencies to version `2.22.12`
-  - Updated `maven-compiler-plugin` to version `3.12.1`
-  - Updated `maven-surefire-plugin` to version `3.2.3`
-  - Updated `maven-javadoc-plugin` to version `3.6.3`
-
 
 ## [0.5.2] - 2023-10-13
 
