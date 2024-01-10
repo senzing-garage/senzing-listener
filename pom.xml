@@ -79,7 +79,7 @@
     <dependency>
       <groupId>com.senzing</groupId>
       <artifactId>senzing-commons</artifactId>
-      <version>[3.1.4, 3.999.999]</version>
+      <version>[3.1.5, 3.999.999]</version>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
