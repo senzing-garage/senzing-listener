@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `ConsumerType.DATABASE` enumerated constant for `SQLConsumer`.
 - Updated `MessageConsumerFactory` to support `ConsumerType.DATABASE` constant 
   and creation of `SQLConsumer` instances.
+- Updated dependency versions:
+  - Updated AWS dependencies to version `2.22.12`
+  - Updated `maven-compiler-plugin` to version `3.12.1`
+  - Updated `maven-surefire-plugin` to version `3.2.3`
+  - Updated `maven-javadoc-plugin` to version `3.6.3`
+
 
 ## [0.5.2] - 2023-10-13
 
