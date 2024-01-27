@@ -1,5 +1,17 @@
 # senzing-listener
 
+If you are beginning your journey with
+[Senzing](https://senzing.com/),
+please start with
+[Senzing Quick Start guides](https://docs.senzing.com/quickstart/).
+
+You are in the
+[Senzing Garage](https://github.com/senzing-garage)
+where projects are "tinkered" on.
+Although this GitHub repository may help you understand an approach to using Senzing,
+it's not considered to be "production ready" and is not considered to be part of the Senzing product.
+Heck, it may not even be appropriate for your application of Senzing!
+
 ## Overview
 
 The Senzing Listener is a Java framework that combines access to a queue (RabbitMQ or SQS) and G2 API.  It facilitates the creation of applications that would receive information (e.g. through streaming service) about G2 entities and perform actions against G2, based on that information.
