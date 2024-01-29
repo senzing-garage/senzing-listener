@@ -6,7 +6,7 @@
   <version>0.5.4</version>
   <name>Senzing Listener Framework</name>
   <description>Framework for creating applications receiving messages from G2 through queue</description>
-  <url>http://github.com/Senzing/senzing-listener</url>
+  <url>http://github.com/senzing-garage/senzing-listener</url>
   <licenses>
     <license>
       <name>The Apache License, Version 2.0</name>
@@ -50,9 +50,9 @@
     </developer>
   </developers>
   <scm>
-    <connection>scm:git:git://github.com/Senzing/senzing-listener.git</connection>
-    <developerConnection>scm:git:ssh://github.com:Senzing/senzing-listener.git</developerConnection>
-    <url>http://github.com/Senzing/senzing-listener/tree/main</url>
+    <connection>scm:git:git://github.com/senzing-garage/senzing-listener.git</connection>
+    <developerConnection>scm:git:ssh://github.com:senzing-garage/senzing-listener.git</developerConnection>
+    <url>http://github.com/senzing-garage/senzing-listener/tree/main</url>
   </scm>
   <dependencyManagement>
     <dependencies>
