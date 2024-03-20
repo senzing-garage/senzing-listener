@@ -1,10 +1,6 @@
 package com.senzing.listener.service.scheduling;
 
 import java.sql.*;
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 import static com.senzing.sql.SQLUtilities.close;
@@ -81,7 +77,7 @@ public class PostgreSQLSchedulingService extends AbstractSQLSchedulingService {
             + "$$;";
 
     String createTriggerSql =
-        "CREATE OR REPLACE TRIGGER sz_follow_up_tasks_trigger "
+        "CREATE TRIGGER sz_follow_up_tasks_trigger "
             + "  BEFORE INSERT OR UPDATE "
             + "  ON sz_follow_up_tasks "
             + "  FOR EACH ROW "
@@ -108,6 +104,7 @@ public class PostgreSQLSchedulingService extends AbstractSQLSchedulingService {
     sqlList.add(createIndexSql1);
     sqlList.add(createIndexSql2);
     sqlList.add(createTriggerFunctionSql);
+    sqlList.add(dropTriggerSql);
     sqlList.add(createTriggerSql);
 
     // execute the statements
