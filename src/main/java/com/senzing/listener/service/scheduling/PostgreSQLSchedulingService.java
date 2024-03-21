@@ -89,7 +89,7 @@ public class PostgreSQLSchedulingService extends AbstractSQLSchedulingService {
 
     String dropTriggerSql =
         "DROP TRIGGER IF EXISTS sz_follow_up_tasks_trigger "
-            + "ON sz_follow_up_timestamps;";
+            + "ON sz_follow_up_tasks;";
 
     List<String> sqlList = new ArrayList<>();
 

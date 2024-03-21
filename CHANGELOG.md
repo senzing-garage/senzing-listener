@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.7] - 2024-03-21
+
+### Changed in 0.5.7
+
+- Fixed bug in PostgreSQL v13.x support for `com.senzing.listener.communication.sql.PostgreSQLClient`
+- Fixed bug in `com.senzing.listener.service.scheduling.PostgreSQLSchedulingService` prevnting the
+  trigger from being dropped properly.
+- Updated `commons-configuration2` dependency from version `2.9.0` to version `2.10.1`
+
 ## [0.5.6] - 2024-03-20
 
 ### Changed in 0.5.6
