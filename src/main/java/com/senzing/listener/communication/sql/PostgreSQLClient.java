@@ -80,7 +80,7 @@ public class PostgreSQLClient implements SQLClient {
                 + "$$;";
     
         String createTriggerSql =
-            "CREATE OR REPLACE TRIGGER sz_msg_queue_trigger "
+            "CREATE TRIGGER sz_msg_queue_trigger "
                 + "  BEFORE INSERT OR UPDATE "
                 + "  ON sz_message_queue "
                 + "  FOR EACH ROW "
@@ -106,6 +106,7 @@ public class PostgreSQLClient implements SQLClient {
         sqlList.add(createTableSql);
         sqlList.add(createIndexSql);
         sqlList.add(createTriggerFunctionSql);
+        sqlList.add(dropTriggerSql);
         sqlList.add(createTriggerSql);
       
         // execute the statements
