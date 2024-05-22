@@ -9,10 +9,6 @@ FROM ${BASE_BUILDER_IMAGE} as builder
 
 ENV REFRESHED_AT=2024-05-22
 
-LABEL Name="senzing/senzing-listener-builder" \
-      Maintainer="support@senzing.com" \
-      Version="0.5.7"
-
 # Set environment variables.
 
 ENV SENZING_ROOT=/opt/senzing
@@ -26,8 +22,8 @@ COPY . /senzing-listener
 WORKDIR /senzing-listener
 
 RUN export SENZING_LISTENER_VERSION=$(mvn "help:evaluate" -Dexpression=project.version -q -DforceStdout) \
- && make package \
- && cp /senzing-listener/target/senzing-listener-${SENZING_LISTENER_VERSION}.jar "/senzing-listener.jar"
+  && make package \
+  && cp /senzing-listener/target/senzing-listener-${SENZING_LISTENER_VERSION}.jar "/senzing-listener.jar"
 
 # -----------------------------------------------------------------------------
 # Stage: Final
@@ -38,8 +34,8 @@ FROM ${BASE_IMAGE}
 ENV REFRESHED_AT=2024-05-22
 
 LABEL Name="senzing/senzing-listener" \
-      Maintainer="support@senzing.com" \
-      Version="0.5.7"
+  Maintainer="support@senzing.com" \
+  Version="0.5.8"
 
 HEALTHCHECK CMD ["/app/healthcheck.sh"]
 
@@ -50,20 +46,20 @@ USER root
 # Install packages via apt.
 
 RUN apt update \
- && apt -y install \
-      software-properties-common \
- && rm -rf /var/lib/apt/lists/*
+  && apt -y install \
+  software-properties-common \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install Java-11.
 
 RUN mkdir -p /etc/apt/keyrings \
- && wget -O - https://packages.adoptium.net/artifactory/api/gpg/key/public > /etc/apt/keyrings/adoptium.asc
+  && wget -O - https://packages.adoptium.net/artifactory/api/gpg/key/public > /etc/apt/keyrings/adoptium.asc
 
 RUN echo "deb [signed-by=/etc/apt/keyrings/adoptium.asc] https://packages.adoptium.net/artifactory/deb $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" >> /etc/apt/sources.list
 
 RUN apt update \
- && apt install -y temurin-11-jdk \
- && rm -rf /var/lib/apt/lists/*
+  && apt install -y temurin-11-jdk \
+  && rm -rf /var/lib/apt/lists/*
 
 # Copy files from repository.
 
