@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.9] - 2024-06-20
+
+### Changed in 0.5.9
+
+- Updasted `senzing-commons-java` dependency from version `3.2.0` to version `3.3.0`
+- Updated Amazon AWS dependencies to version `2.26.4`
+- Updated `commons-configuration2` dependency from version `2.10.1` to version `2.11.0`
+- Updated `amqp-client` dependency from version `5.20.0` to version `5.21.0`
+- Updated `commons-cli` dependency from version `1.6.0` to version `1.8.0`
+- Updated `postgresql` dependency from version `42.7.2` to version `42.7.3`
+- Updated `maven-compiler-plugin` dependency from version `3.12.1` to version `3.13.0`
+- Updated `maven-surefire-plugin` dependency from version `3.2.5` to version `3.3.0`
+- Updated `maven-source-plugin` dependency from version `3.3.0` to version `3.3.1`
+- Updated `maven-javadoc-plugin` dependency from version `3.6.3` to version `3.7.0`
+- Updated `maven-gpg-plugin` dependency from version `3.1.0` to version `3.2.4`
+- Updated `nexus-staging-maven-plugin` dependency from version `1.6.13` to version `1.7.0`
+
 ## [0.5.8] - 2024-05-22
 
 ### Changed in 0.5.8
