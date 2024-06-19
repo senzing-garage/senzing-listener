@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed in 0.5.9
 
-- Updasted `senzing-commons-java` dependency from version `3.2.0` to version `3.3.0`
+- Updated `senzing-commons-java` dependency from version `3.2.0` to version `3.3.0`
 - Updated Amazon AWS dependencies to version `2.26.4`
 - Updated `commons-configuration2` dependency from version `2.10.1` to version `2.11.0`
 - Updated `amqp-client` dependency from version `5.20.0` to version `5.21.0`
