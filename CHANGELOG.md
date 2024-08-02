@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2024-08-02
+
+### Changed in 1.0.0
+
+- Promoted to version `1.0.0` release
+- In `pom.xml`:
+  - Updated Amazon AWS dependencies from version `2.26.4` to `2.26.27`
+  - Updated `junit-jupiter` from version `5.10.2` to version `5.10.3`
+  - Updated `maven-surefire-plugin` from version `3.3.0` to `3.3.31`
+  - Updated `maven-javadoc-plugin` from version `3.7.0` to `3.8.0`
+
 ## [0.5.10] - 2024-06-24
 
 ### Changed in 0.5.10
