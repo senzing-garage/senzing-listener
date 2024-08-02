@@ -39,7 +39,7 @@ ENV REFRESHED_AT=2024-06-24
 
 LABEL Name="senzing/senzing-listener" \
   Maintainer="support@senzing.com" \
-  Version="0.5.10"
+  Version="1.0.0"
 
 HEALTHCHECK CMD ["/app/healthcheck.sh"]
 
