@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 [markdownlint](https://dlaa.me/markdownlint/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2024-10-08
+
+### Changed in 1.0.1
+
+- Updated dependencies:
+  - Updated `senzing-commons` from version `3.3.0` to `3.3.1`
+  - Updated `amqp-client` from version `5.21.0` to `5.22.0`
+  - Updated Amazon AWS dependencies from version `2.26.27` to `2.28.17`
+  - Updated `commons-cli` from version `1.8.0` to `1.9.0`
+  - Updated `postgresql` from version `42.7.3` to `42.7.4`
+  - Updated `junit-jupiter` from version `5.10.3` to version `5.11.2`
+  - Updated `maven-surefire-plugin` from version `3.3.31` to `3.5.1`
+  - Updated `maven-javadoc-plugin` from version `3.8.0` to `3.10.1`
+  - Updated `maven-gpg-plugin` from version `3.2.4` to `3.2.7`
+
 ## [1.0.0] - 2024-08-02
 
 ### Changed in 1.0.0

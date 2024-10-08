@@ -32,7 +32,6 @@ public class SQLiteClient implements SQLClient {
      * {@inheritDoc}
      * <p>
      * Implemented to create the schema for the SQLite database.
-     * <p>
      */
     @Override
     public void ensureSchema(Connection conn, boolean recreate) 
