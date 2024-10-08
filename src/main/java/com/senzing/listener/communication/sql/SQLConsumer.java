@@ -49,6 +49,9 @@ public class SQLConsumer extends AbstractMessageConsumer<LeasedMessage> {
     /**
      * Checks if the message queue is empty.
      * 
+     * @return <code>true</code> if the queue is empty,
+     *         otherwise <code>false</code>.
+     * 
      * @throws SQLException If a database failure occurs.
      */
     boolean isEmpty() throws SQLException;

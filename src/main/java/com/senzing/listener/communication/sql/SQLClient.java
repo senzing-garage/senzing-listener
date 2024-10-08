@@ -42,6 +42,9 @@ interface SQLClient {
      * 
      * @param conn The {@link Connection} to use.
      * 
+     * @return <code>true</code> if the queue is empty,
+     *         otherwise <code>false</code>.
+     * 
      * @throws SQLException If a database failure occurs.
      */
     default boolean isQueueEmpty(Connection conn) throws SQLException {

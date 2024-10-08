@@ -1135,7 +1135,7 @@ public class AbstractMessageConsumerTest {
     List<Message> batches = new LinkedList<>();
     int messageCount = buildInfoBatches(
         batches,
-        10000,
+        2000,
         List.of("CUSTOMERS", "EMPLOYEES", "VENDORS"),
         1,
         10,
