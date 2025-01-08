@@ -1,5 +1,9 @@
 # senzing-listener
 
+## :no_entry: Deprecated
+
+[![No Maintenance Intended](http://unmaintained.tech/badge.svg)](http://unmaintained.tech/)
+
 If you are beginning your journey with
 [Senzing](https://senzing.com/),
 please start with
@@ -35,13 +39,13 @@ To build simply execute:
 mvn install
 ```
 
-## Creating applications.
+## Creating applications
 
 There are 3 steps needed for creating an application around the Senzing Listener framework.
 
 1. Generate a consumer that interacts with RabbitMQ or SQS.
 
-    This is done with a factory class, `MessageConsumerFactory`.  The Method is 
+    This is done with a factory class, `MessageConsumerFactory`.  The Method is
 
     ```console
     MessageConsumer generateMessageConsumer(ConsumerType consumerType, String config)
@@ -68,7 +72,7 @@ There are 3 steps needed for creating an application around the Senzing Listener
     This service is implemented from an interface `ListenerService`.  There are 2 methods required.
 
     1. init(String config) where 'config` is a string containing configuration information. The format of the configuration is not set or enforced but Json is the desired form
-    
+
     1. process(String message) where `message` is the message received from the queue. The format is not set or enforced but will probably be in Jason format.
 
 1. Pass the service generated in the second steo, to the consumer generated in the first step
@@ -245,7 +249,7 @@ mvn install
 
 1. Verify reception by app
 
-    You should get 
+    You should get
 
     ```console
     Hello World!  I received this message:
@@ -271,16 +275,16 @@ This example adds access to G2 to the Hello World example above.
         // The required configuration, mq name and the host RabbitMQ runs on.
         // Note: the ini file path needs to be adjusted to match the Senzing G2 installation.
         String config = "{\"mqQueue\":\"hwqueue\",\"mqHost\":\"localhost\",\"iniFile\":\"/home/user/senzing/etc/G2Module.ini\"}";
-    
+
         try {
           // Create the service and initialize it.
           ListenerService service = new HelloWorldService();
           // In this simple the initalization is not needed but is included for demonstration purposes.
           service.init(config);
-    
+
           // Generate the queue consumer.
           MessageConsumer consumer = MessageConsumerFactory.generateMessageConsumer(ConsumerType.rabbitmq, config);
-    
+
           // Pass the service to the consumer, which will do the processing.
           consumer.consume(service);
         } catch (Exception e) {
@@ -296,21 +300,21 @@ This example adds access to G2 to the Hello World example above.
     import org.json.JSONArray;
     import org.json.JSONException;
     import org.json.JSONObject;
-    
+
     import com.senzing.listener.service.g2.G2Service;
     import com.senzing.listener.service.ListenerService;
     import com.senzing.listener.service.exception.ServiceExecutionException;
     import com.senzing.listener.service.exception.ServiceSetupException;
-    
+
     public class HelloWorldService implements ListenerService {
-    
+
       G2Service g2Service;
-    
+
       @Override
       public void init(String config) throws ServiceSetupException {
         // Get the ini file name from configuration.
         String g2IniFile = null;
-        try { 
+        try {
           JSONObject configObject = new JSONObject(config);
           g2IniFile = configObject.optString("iniFile");
         } catch (JSONException e) {
@@ -319,10 +323,10 @@ This example adds access to G2 to the Hello World example above.
         // Initalize G2.
         g2Service = new G2Service();
         g2Service.init(g2IniFile);
-    
+
         System.out.println("Application has started.  Press ^c to stop.");
       }
-    
+
       @Override
       public void process(String message) throws ServiceExecutionException {
         try {
@@ -344,7 +348,7 @@ This example adds access to G2 to the Hello World example above.
         } catch (JSONException e) {
           throw new ServiceExecutionException(e);
         }
-    
+
       }
     }
     ```
@@ -369,9 +373,8 @@ This example adds access to G2 to the Hello World example above.
     set Path=%SENZING_G2_DIR%\lib;%Path%
     ```
 
-1. For testing follow the steps in the Hello World example, except use 
+1. For testing follow the steps in the Hello World example, except use
 
-    {"DATA_SOURCE":"TEST","RECORD_ID":"RECORD3","AFFECTED_ENTITIES":[{"ENTITY_ID":1,"LENS_CODE":"DEFAULT"}]}` 
+    {"DATA_SOURCE":"TEST","RECORD_ID":"RECORD3","AFFECTED_ENTITIES":[{"ENTITY_ID":1,"LENS_CODE":"DEFAULT"}]}`
 
     as a payload message.  You should get the G2 entity echoed to the screen.  You might need to adjust the above message if entity id 1 doesn't exist in your system.
-
